@@ -118,6 +118,16 @@
     .groupe h3 { cursor: default; }
     .union { border: 1px solid #e3daf3; border-radius: 10px; padding: 4px 12px 12px; margin-top: 10px; background: #faf7ff; position: relative; }
     .union .retirer { position: absolute; top: 6px; right: 8px; border: 0; background: none; color: #a0508a; cursor: pointer; font: inherit; font-size: 13px; }
+    #filAriane { display: flex; align-items: center; gap: 8px; padding: 6px 12px; margin: 4px 0 6px; background: #f6f2fc; border: 1px solid #e6def4; border-radius: 10px; font-size: 13px; }
+    #filAriane[hidden] { display: none; }
+    #filAriane .filTitre { color: #7a6f92; flex: none; }
+    #filAriane ol { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; overflow-x: auto; white-space: nowrap; flex: 1; min-width: 0; position: relative; scrollbar-width: thin; }
+    #filAriane li { display: flex; align-items: center; flex: none; }
+    #filAriane li + li::before { content: "›"; color: #a99cc6; margin: 0 6px; }
+    #filAriane li button { font: inherit; border: 0; background: none; color: var(--violet); cursor: pointer; padding: 3px 6px; border-radius: 6px; }
+    #filAriane li button:hover { background: #ebe3f8; text-decoration: underline; }
+    #filAriane li button.actif { background: var(--violet); color: #fff; font-weight: 600; text-decoration: none; }
+    #filAriane .filEffacer { flex: none; font: inherit; font-size: 12px; border: 0; background: none; color: #8a7fa3; cursor: pointer; text-decoration: underline; }
     #bandeauLecture { display: none; background: #4b3a86; color: #fff; text-align: center; padding: 8px 12px; font-size: 14px; }
     .lecture #bandeauLecture { display: block; }
     .lecture #btnCloud, .lecture .menu, .lecture #vueModifier, .lecture #relations, .lecture #nouveau, .lecture #supprimer,
@@ -547,6 +557,7 @@
         <button type="button" data-o="reglages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Réglages</button>
       </div>
       <div id="formats" role="toolbar" aria-label="Format d’affichage"></div>
+      <nav id="filAriane" aria-label="Parcours dans l’arbre" hidden></nav>
       <div id="arbre"></div>
     </main>
 
@@ -734,8 +745,13 @@
                     "armee", "unite", "grade", "periodeMilitaire", "matricule"];
 
     // Lien de partage (…#partage=<jeton>) : mode lecture seule. Rien n'est lu ni écrit sur cet appareil ni dans le cloud.
-    const LECTURE = (/^#partage=([0-9a-f]{64})$/.exec(location.hash) || [])[1] || null;
+    const jetonDuLien = () => (/partage=([0-9a-fA-F]{64})/.exec(location.hash) || [])[1]?.toLowerCase() || null;
+    const LECTURE = jetonDuLien();
     if (LECTURE) document.documentElement.classList.add("lecture");
+    // Un lien collé dans un onglet où le site est déjà ouvert ne recharge pas la page (seul le #… change) : on force le rechargement
+    window.addEventListener("hashchange", function () {
+      if (jetonDuLien() !== LECTURE) location.reload();
+    });
 
     let base = null;
     if (LECTURE) {
@@ -1730,6 +1746,7 @@
       base.courant = id;
       personnes = arbreCourant().personnes;
       choix = null; ajout = null; dernier = null;
+      fil = [];   // le fil d'Ariane est propre à chaque arbre
       sauvegarderBase();
       if (personnes.length) ouvrir(personnes[0].id); else nouvelle(null);
       dire("");
@@ -2565,12 +2582,40 @@
       for (const b of document.querySelectorAll("#onglets button")) {
         b.classList.toggle("actif", b.dataset.o === onglet);
       }
+      afficherFil();
       afficherArbre();
+    }
+
+    // ---------- Fil d'Ariane : les personnes ouvertes, dans l'ordre, sans doublon ----------
+    let fil = [];
+    const FIL_MAX = 20;
+
+    function noterFil(id) {
+      if (!fil.includes(id)) {
+        fil.push(id);
+        if (fil.length > FIL_MAX) fil = fil.slice(-FIL_MAX);
+      }
+    }
+
+    function afficherFil() {
+      const z = $("filAriane");
+      fil = fil.filter(id => trouver(id));   // retire les personnes supprimées
+      if (fil.length < 2) { z.hidden = true; z.innerHTML = ""; return; }
+      z.hidden = false;
+      z.innerHTML = '<span class="filTitre">Parcours :</span><ol>' + fil.map(id => {
+        const p = trouver(id), cur = id === choix;
+        return "<li><button type=\"button\" data-fil=\"" + id + '"' + (cur ? ' aria-current="true" class="actif"' : "") + ">" +
+          echapper(nomComplet(p)) + "</button></li>";
+      }).join("") + '</ol><button type="button" class="filEffacer" data-fil-effacer title="Effacer le parcours">Effacer</button>';
+      // garde la personne ouverte visible quand le parcours est long (défilement horizontal seulement)
+      const ol = z.querySelector("ol"), a = z.querySelector(".actif");
+      if (a) ol.scrollLeft = a.parentNode.offsetLeft - ol.clientWidth / 2 + a.offsetWidth / 2;
     }
 
     function ouvrir(id) {
       choix = id;
       dernier = id;
+      noterFil(id);
       ajout = null;
       remplirListes();
       const p = trouver(id);
@@ -2731,6 +2776,12 @@
         nouvelle({ type: type, ref: choix, avec: avec });
         dire("");
       }
+    });
+
+    $("filAriane").addEventListener("click", function (e) {
+      if (e.target.closest("[data-fil-effacer]")) { fil = choix ? [choix] : []; afficherFil(); return; }
+      const b = e.target.closest("[data-fil]");
+      if (b && trouver(b.dataset.fil)) { ouvrir(b.dataset.fil); dire(""); }
     });
 
     $("ajoutUnion").addEventListener("click", function () {
