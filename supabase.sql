@@ -64,3 +64,26 @@ $$;
 
 revoke all on function public.lire_partage(text) from public;
 grant execute on function public.lire_partage(text) to anon, authenticated;
+
+
+-- =====================================================================
+-- PARTAGE : UN LIEN PAR DESTINATAIRE  —  à exécuter une fois, peut être relancé
+-- =====================================================================
+-- Chaque lien porte le nom de la personne qui le reçoit (jamais dans l'adresse du lien).
+alter table public.partages add column if not exists destinataire text;
+
+create or replace function public.lire_partage(p_token text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select data || jsonb_build_object('destinataire', coalesce(destinataire, ''), 'nomArbre', coalesce(nom, ''))
+  from public.partages where token = p_token
+$$;
+
+revoke all on function public.lire_partage(text) from public;
+grant execute on function public.lire_partage(text) to anon, authenticated;
+
+notify pgrst, 'reload schema';

@@ -3178,7 +3178,9 @@
         anon.rpc("lire_partage", { p_token: LECTURE }).then(function (r) {
           if (r.error || !r.data) { bandeau("Ce lien de partage est invalide ou a été supprimé par son propriétaire."); return; }
           const a = base.arbres[0];
-          a.nom = r.data.nom || "Arbre partagé";
+          a.nom = r.data.nomArbre || r.data.nom || "Arbre partagé";
+          bandeau("👁 Arbre « " + a.nom + " »" + (r.data.destinataire ? " partagé avec " + r.data.destinataire : " partagé avec vous") +
+            " · lecture seule : vous pouvez le consulter, pas le modifier.");
           a.personnes = Array.isArray(r.data.personnes) ? r.data.personnes : [];
           personnes = a.personnes;
           dernier = r.data.racine && trouver(r.data.racine) ? r.data.racine : (personnes[0] ? personnes[0].id : null);
@@ -3210,12 +3212,17 @@
 
       // ---- Partage en lecture seule : un lien secret par arbre (copie mise à jour à chaque sauvegarde) ----
       let partagesIds = new Set();   // arbres qui ont au moins un lien actif
+      let colonneDest = true;        // false tant que la dernière partie de supabase.sql n'a pas été lancée
 
       const jeton = () => Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, "0")).join("");
       const instantane = a => ({ nom: a.nom, racine: a.id === base.courant ? (choix || dernier || null) : null, personnes: a.personnes || [] });
 
       async function chargerPartages() {
-        const r = await sb.from("partages").select("token,arbre_id,nom,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false });
+        let r = await sb.from("partages").select("token,arbre_id,nom,destinataire,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false });
+        if (r.error && /destinataire/.test(r.error.message || "")) {   // colonne pas encore ajoutée dans Supabase
+          colonneDest = false;
+          r = await sb.from("partages").select("token,arbre_id,nom,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false });
+        } else colonneDest = true;
         if (r.error) { console.error(r.error); return null; }
         partagesIds = new Set(r.data.map(x => x.arbre_id));
         return r.data;
@@ -3258,7 +3265,13 @@
 
       // Adresse publique du site (là où tes proches ouvriront le lien)
       const adresseSite = () => { try { return localStorage.getItem("adresse-site") || ""; } catch (e) { return ""; } };
-      const adresseDefaut = () => adresseSite() || (/^https?:/.test(location.href) && !/localhost|127\.0\.0\.1/.test(location.hostname) ? location.href.split("#")[0] : "https://kassandrahaas27-spec.github.io/arbre/");
+      // Priorité à l'adresse où le site est ouvert (s'il est en ligne), sinon celle mémorisée, sinon l'adresse publique du site
+      const ADRESSE_PUBLIQUE = "https://mon-arbre-genealogique.github.io/arbre/";
+      const adresseDefaut = () => {
+        if (/^https:/.test(location.href) && !/localhost|127\.0\.0\.1/.test(location.hostname)) return location.href.split("#")[0];
+        const m = adresseSite();
+        return m && !/kassandrahaas27/.test(m) ? m : ADRESSE_PUBLIQUE;
+      };
 
       async function rendrePartages() {
         const zone = document.getElementById("cPartages");
@@ -3266,11 +3279,24 @@
         const liste = await chargerPartages();
         if (!liste) { zone.textContent = "Partage indisponible : exécute d'abord la dernière partie de supabase.sql dans Supabase."; return; }
         zone.innerHTML = "";
-        if (!liste.length) { zone.innerHTML = '<p class="doux">Aucun lien actif.</p>'; return; }
+        if (!colonneDest) {
+          const av = document.createElement("p");
+          av.className = "doux";
+          av.textContent = "⚠ Pour nommer les destinataires, lance d'abord dans Supabase la partie « UN LIEN PAR DESTINATAIRE » de supabase.sql.";
+          zone.appendChild(av);
+        }
+        if (!liste.length) { zone.insertAdjacentHTML("beforeend", '<p class="doux">Aucun lien actif.</p>'); return; }
+        const h = document.createElement("h3"); h.textContent = "Liens actifs (" + liste.length + ")"; zone.appendChild(h);
         for (const p of liste) {
           const div = document.createElement("div");
           div.className = "unionFam";
-          const t = document.createElement("b"); t.textContent = p.nom || "Arbre"; div.appendChild(t);
+          const t = document.createElement("b");
+          t.textContent = (p.destinataire ? "Pour " + p.destinataire : "Destinataire non précisé") + " — arbre « " + (p.nom || "Arbre") + " »";
+          div.appendChild(t);
+          const d = document.createElement("small");
+          d.className = "doux";
+          d.textContent = " · mis à jour le " + new Date(p.updated_at).toLocaleDateString("fr-FR");
+          div.appendChild(d);
           const champ = document.createElement("input");
           champ.readOnly = true; champ.value = (adresseDefaut() || "(adresse du site à renseigner)") + "#partage=" + p.token;
           champ.onfocus = () => champ.select();
@@ -3281,7 +3307,7 @@
           const retirer = document.createElement("button");
           retirer.type = "button"; retirer.className = "action clair"; retirer.textContent = "Supprimer le lien";
           retirer.onclick = async () => {
-            if (!confirm("Supprimer ce lien ? Les personnes qui l'ont ne pourront plus voir l'arbre.")) return;
+            if (!confirm("Supprimer le lien" + (p.destinataire ? " de " + p.destinataire : "") + " ? Cette personne ne pourra plus voir l'arbre.")) return;
             const r = await sb.from("partages").delete().eq("token", p.token).eq("user_id", user.id);
             msg(r.error ? "Erreur : " + r.error.message : "Lien supprimé ✔");
             rendrePartages();
@@ -3295,10 +3321,15 @@
         const adr = document.getElementById("cAdr").value.trim();
         if (!/^https:\/\//.test(adr)) { msg("Indique d'abord l'adresse publique de ton site (elle commence par https://)."); return; }
         try { localStorage.setItem("adresse-site", adr.split("#")[0]); } catch (e) {}
-        const a = arbreCourant();
+        const a = base.arbres.find(x => x.id === document.getElementById("cArbre").value) || arbreCourant();
+        const dest = document.getElementById("cDest").value.trim().slice(0, 80);
+        if (!dest) { msg("Indique le nom de la personne qui va recevoir ce lien."); document.getElementById("cDest").focus(); return; }
         msg("…");
-        const r = await sb.from("partages").insert({ token: jeton(), user_id: user.id, arbre_id: a.id, nom: a.nom, data: instantane(a) });
-        msg(r.error ? "Erreur : " + r.error.message : "Lien créé ✔ (copie-le ci-dessous)");
+        const ligne = { token: jeton(), user_id: user.id, arbre_id: a.id, nom: a.nom, data: instantane(a) };
+        if (colonneDest) ligne.destinataire = dest;
+        const r = await sb.from("partages").insert(ligne);
+        if (!r.error) { partagesIds.add(a.id); document.getElementById("cDest").value = ""; }
+        msg(r.error ? "Erreur : " + r.error.message : "Lien créé pour " + dest + " ✔ (copie-le ci-dessous)");
         rendrePartages();
       }
 
@@ -3309,13 +3340,23 @@
             '<button type="button" class="action clair" id="cOut">Se déconnecter</button>' +
             '<div class="groupe"><h3>Partager en lecture seule</h3>' +
             '<p class="doux">Crée un lien secret : toute personne qui l’a peut <b>consulter</b> l’arbre actuel (fiches, photos et notes comprises), sans pouvoir le modifier. ' +
-            'Envoie-le seulement à tes proches, par message privé. Le lien reste à jour à chaque sauvegarde ; supprime-le pour couper l’accès.</p>' +
-            '<label for="cAdr">Adresse publique de ton site</label><input id="cAdr" type="url" placeholder="https://ton-nom.github.io/arbre/">' +
-            '<button type="button" class="action" id="cShare">Créer un lien pour cet arbre</button>' +
+            'Crée <b>un lien différent pour chaque personne</b> : tu sauras qui a quel lien et pourras couper l’accès d’une seule personne. Le lien reste à jour à chaque sauvegarde.</p>' +
+            '<label for="cArbre">Arbre à partager</label><select id="cArbre"></select>' +
+            '<label for="cDest">Nom de la personne qui reçoit le lien</label><input id="cDest" maxlength="80" placeholder="ex. Marie" autocomplete="off">' +
+            '<label for="cAdr">Adresse publique de ton site</label><input id="cAdr" type="url" placeholder="https://…github.io/arbre/">' +
+            '<button type="button" class="action" id="cShare">Créer le lien</button>' +
             '<div id="cPartages"></div></div>' +
             '<p id="cloudMsg"></p>';
           corps.querySelector("b").textContent = user.email;
           document.getElementById("cAdr").value = adresseDefaut();
+          const selA = document.getElementById("cArbre");
+          for (const a of base.arbres) {
+            const o = document.createElement("option");
+            o.value = a.id;
+            o.textContent = (a.nom || "Arbre") + " (" + (a.personnes || []).length + " personnes)";
+            if (a.id === base.courant) o.selected = true;
+            selA.appendChild(o);
+          }
           document.getElementById("cAdr").addEventListener("change", function () {
             try { localStorage.setItem("adresse-site", this.value.trim().split("#")[0]); } catch (e) {}
             rendrePartages();
