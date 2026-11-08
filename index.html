@@ -116,6 +116,18 @@
     .groupe { border-top: 1px solid #ece6f3; margin-top: 16px; padding-top: 4px; }
     .groupe h3, details.groupe summary { margin: 8px 0 0; font-size: 14px; color: var(--indigo); cursor: pointer; }
     .groupe h3 { cursor: default; }
+    .union { border: 1px solid #e3daf3; border-radius: 10px; padding: 4px 12px 12px; margin-top: 10px; background: #faf7ff; position: relative; }
+    .union .retirer { position: absolute; top: 6px; right: 8px; border: 0; background: none; color: #a0508a; cursor: pointer; font: inherit; font-size: 13px; }
+    #bandeauLecture { display: none; background: #4b3a86; color: #fff; text-align: center; padding: 8px 12px; font-size: 14px; }
+    .lecture #bandeauLecture { display: block; }
+    .lecture #btnCloud, .lecture .menu, .lecture #vueModifier, .lecture #relations, .lecture #nouveau, .lecture #supprimer,
+    .lecture #effacer, .lecture .ph, .lecture [data-modif], .lecture [data-o="modifier"], .lecture .envoi, .lecture .cat,
+    .lecture #texteNote, .lecture #ajoutNote, .lecture [data-suppr], .lecture [data-suppr-note], .lecture [data-profil],
+    .lecture [data-menuev], .lecture [data-a="importer"], .lecture [data-a="importerGed"], .lecture [data-a="creer"],
+    .lecture #accueil .action, .lecture #renommerArbre { display: none !important; }
+    .numUnion { position: absolute; font-size: 12px; font-weight: 700; color: #3b3157; line-height: 1; pointer-events: none; }
+    .unionFam { border-left: 3px solid #b9a6e6; padding-left: 10px; margin: 10px 0; }
+    .unionFam h3 { margin-top: 0; }
     button.action { font: inherit; font-weight: 600; padding: 8px 16px; margin: 16px 8px 8px 0;
       background: var(--violet); color: #fff; border: 1.5px solid var(--violet); border-radius: 8px; cursor: pointer; }
     button.action.clair { background: #fff; color: var(--violet); }
@@ -489,6 +501,7 @@
     </div>
     <button type="button" id="btnCloud" class="navBtn">☁ Connexion</button>
   </header>
+  <div id="bandeauLecture" role="status">👁 Arbre partagé en lecture seule : vous pouvez le consulter, pas le modifier.</div>
   <dialog id="dlgCloud">
     <div class="dlgTete"><h2>Sauvegarde dans le cloud</h2><button type="button" id="cloudFermer" aria-label="Fermer">✕</button></div>
     <div id="cloudCorps" class="cloudCorps"></div>
@@ -639,6 +652,10 @@
               <input id="lieuDivorce">
             </div>
           </div>
+          <h3>Autres unions</h3>
+          <small class="doux">Pour une personne mariée plusieurs fois ou ayant eu des enfants avec différents compagnons : ajoutez ici chaque autre union.</small>
+          <div id="autresUnions"></div>
+          <button type="button" class="action clair" id="ajoutUnion">+ Ajouter une autre union</button>
         </div>
 
         <details class="groupe" id="militaire">
@@ -716,8 +733,14 @@
                     "mariage", "lieuMariage", "divorce", "lieuDivorce",
                     "armee", "unite", "grade", "periodeMilitaire", "matricule"];
 
+    // Lien de partage (…#partage=<jeton>) : mode lecture seule. Rien n'est lu ni écrit sur cet appareil ni dans le cloud.
+    const LECTURE = (/^#partage=([0-9a-f]{64})$/.exec(location.hash) || [])[1] || null;
+    if (LECTURE) document.documentElement.classList.add("lecture");
+
     let base = null;
-    try {
+    if (LECTURE) {
+      base = { courant: "partage", vue: "arbre", v4: 1, arbres: [{ id: "partage", nom: "Arbre partagé", maj: Date.now(), personnes: [] }] };
+    } else try {
       const s = localStorage.getItem(CLE3);
       if (s) base = JSON.parse(s);
     } catch (e) {}
@@ -750,6 +773,7 @@
     const trouver = id => personnes.find(p => p.id === id);
 
     function sauvegarderBase() {
+      if (LECTURE) return true;   // lecture seule : on n'enregistre jamais
       base.sync = Date.now();
       let ok = false;
       try { localStorage.setItem(CLE3, JSON.stringify(base)); ok = true; } catch (e) {}
@@ -837,12 +861,91 @@
         "</select></div>";
     }
 
+    // ---------- Unions multiples ----------
+    // L'union principale reste dans les champs conjoint / mariage / divorce ;
+    // toutes les autres sont dans p.unions = [{ avec, mariage, lieuMariage, divorce, lieuDivorce }] (des deux côtés).
+    const COUL_UNION = ["#7c5cd6", "#e0703f", "#1f9e8f", "#c2377a", "#b8860b"];
+    const CH_UNION = ["mariage", "lieuMariage", "divorce", "lieuDivorce"];
+
+    function unionsDe(p) {
+      const l = [], vus = new Set();
+      const lire = (a, b) => a.conjoint === b.id ? a : (a.unions || []).find(u => u.avec === b.id) || {};
+      const ajoute = q => {
+        if (!q || q.id === p.id || vus.has(q.id)) return;
+        vus.add(q.id);
+        const x = lire(p, q), y = lire(q, p), u = { q: q };
+        for (const k of CH_UNION) u[k] = x[k] || y[k] || "";
+        l.push(u);
+      };
+      ajoute(p.conjoint && trouver(p.conjoint));
+      for (const u of p.unions || []) ajoute(trouver(u.avec));
+      for (const q of personnes) if (q.conjoint === p.id || (q.unions || []).some(u => u.avec === p.id)) ajoute(q);
+      // Union déduite des enfants : l'autre parent d'un enfant est forcément un conjoint, même non enregistré
+      for (const c of personnes) if (c.pere === p.id || c.mere === p.id) ajoute(trouver(c.pere === p.id ? c.mere : c.pere));
+      return l;
+    }
+
+    // Même liste, dans l'ordre chronologique : date du mariage, sinon naissance du premier enfant commun
+    function unionsChrono(p) {
+      const cle = u => {
+        const m = +annee(u.mariage);
+        if (m) return m;
+        const ys = personnes.filter(c => (c.pere === p.id && c.mere === u.q.id) || (c.mere === p.id && c.pere === u.q.id))
+          .map(c => +annee(c.naissance)).filter(Boolean);
+        return ys.length ? Math.min.apply(null, ys) : 9999;
+      };
+      return unionsDe(p).map((u, i) => ({ u: u, i: i, k: cle(u) })).sort((a, b) => (a.k - b.k) || a.i - b.i).map(x => x.u);
+    }
+
+    function poserUnion(a, b, d) {
+      if (a.conjoint === b.id) { for (const k of CH_UNION) a[k] = d[k] || ""; return; }
+      a.unions = a.unions || [];
+      let u = a.unions.find(x => x.avec === b.id);
+      if (!u) { u = { avec: b.id }; a.unions.push(u); }
+      for (const k of CH_UNION) u[k] = d[k] || "";
+    }
+
+    function retirerUnion(a, bId) {
+      if (!a.unions) return;
+      a.unions = a.unions.filter(x => x.avec !== bId);
+      if (!a.unions.length) delete a.unions;
+    }
+
+    const texteUnion = u => [u.mariage || u.lieuMariage ? "Mariage " + [u.mariage, u.lieuMariage].filter(Boolean).join(" à ") : "",
+      u.divorce || u.lieuDivorce ? "Divorce " + [u.divorce, u.lieuDivorce].filter(Boolean).join(" à ") : ""].filter(Boolean).join(" · ");
+
+    function ligneUnion(u) {
+      const opts = '<option value="">—</option>' + personnes.filter(p => p.id !== choix).map(p =>
+        '<option value="' + p.id + '"' + (p.id === u.avec ? " selected" : "") + ">" + echapper(nomComplet(p)) + "</option>").join("");
+      const champ = (k, lib) => "<div><label>" + lib + '</label><input data-u="' + k + '" value="' + echapper(u[k] || "") + '"></div>';
+      return '<div class="union"><button type="button" class="retirer" data-retirer>Retirer</button>' +
+        '<label>Autre conjoint(e) ou compagnon / compagne</label><select data-u="avec">' + opts + "</select>" +
+        '<div class="deux">' + champ("mariage", "Date du mariage") + champ("lieuMariage", "Lieu") + "</div>" +
+        '<div class="deux">' + champ("divorce", "Date du divorce / séparation") + champ("lieuDivorce", "Lieu") + "</div></div>";
+    }
+
+    function rendreUnions(p) {
+      $("autresUnions").innerHTML = ((p && p.unions) || []).map(ligneUnion).join("");
+    }
+
+    function lireUnions() {
+      const vus = new Set(), l = [];
+      for (const div of $("autresUnions").querySelectorAll(".union")) {
+        const u = {};
+        for (const el of div.querySelectorAll("[data-u]")) u[el.dataset.u] = el.value.trim();
+        if (!u.avec || vus.has(u.avec)) continue;
+        vus.add(u.avec);
+        l.push(u);
+      }
+      return l;
+    }
+
     // Frise des événements de la vie, comme sur Filae
     function afficherEvenements() {
       const p = choix && trouver(choix), zone = $("vueFiche");
       if (!p) { zone.innerHTML = ""; return; }
       const f = p.sexe === "F";
-      const conj = p.conjoint && trouver(p.conjoint);
+      const unions = unionsChrono(p);
       const pere = p.pere && trouver(p.pere), mere = p.mere && trouver(p.mere);
       const ev = [];
       const nd = c => (p.docs || []).some(d => d.categorie === c);
@@ -861,10 +964,15 @@
         ajouter(c.naissance, "Naissance d’un enfant " + lienNom(c) + (autre ? " avec " + lienNom(autre) : ""),
           [echapper(dl(c.naissance, c.lieuNaissance))]);
       }
-      if ((conj && (p.mariage || p.lieuMariage)) || nd("Mariage"))
-        ajouter(p.mariage, "Mariage" + (conj ? " avec " + lienNom(conj) : ""), [echapper(dl(p.mariage, p.lieuMariage))], true, "Mariage");
-      if ((conj && (p.divorce || p.lieuDivorce)) || nd("Divorce"))
-        ajouter(p.divorce, "Divorce" + (conj ? " d’avec " + lienNom(conj) : ""), [echapper(dl(p.divorce, p.lieuDivorce))], false, "Divorce");
+      let catM = nd("Mariage"), catD = nd("Divorce");   // les photos ne sont rattachées qu'à un seul événement
+      for (const u of unions) {
+        const m = u.mariage || u.lieuMariage, d = u.divorce || u.lieuDivorce;
+        if (m) { ajouter(u.mariage, "Mariage avec " + lienNom(u.q), [echapper(dl(u.mariage, u.lieuMariage))], true, catM ? "Mariage" : ""); catM = false; }
+        else if (!d && unions.length > 1) ajouter("", "Union avec " + lienNom(u.q), [], false, "");
+        if (d) { ajouter(u.divorce, "Divorce d’avec " + lienNom(u.q), [echapper(dl(u.divorce, u.lieuDivorce))], false, catD ? "Divorce" : ""); catD = false; }
+      }
+      if (catM) ajouter("", "Mariage", [], true, "Mariage");
+      if (catD) ajouter("", "Divorce", [], false, "Divorce");
       if (p.armee || p.unite || p.grade || p.periodeMilitaire || p.matricule || nd("Service militaire")) {
         ajouter(p.periodeMilitaire, "Service militaire",
           [[p.armee, p.grade, p.unite, p.periodeMilitaire, p.matricule ? "Matricule " + p.matricule : ""]
@@ -915,12 +1023,27 @@
       if (!p) { z.innerHTML = ""; return; }
       const parents = [p.pere, p.mere].map(id => id && trouver(id)).filter(Boolean);
       const fratrie = personnes.filter(c => c.id !== p.id && ((p.pere && c.pere === p.pere) || (p.mere && c.mere === p.mere)));
-      const conj = p.conjoint && trouver(p.conjoint);
+      const unions = unionsChrono(p);
       const enfants = personnes.filter(c => c.pere === p.id || c.mere === p.id);
       const bloc = (titre, liste) => "<h3>" + titre + "</h3>" +
         (liste.length ? liste.map(q => mini(q)).join("") : '<p class="doux">—</p>');
-      z.innerHTML = bloc("Parents", parents) + bloc("Frères et sœurs", fratrie) +
-        bloc("Conjoint(e)", conj ? [conj] : []) + bloc("Enfants", enfants);
+      let h = bloc("Parents", parents) + bloc("Frères et sœurs", fratrie);
+      if (unions.length <= 1) {
+        h += bloc("Conjoint(e)", unions.map(u => u.q)) + bloc("Enfants", enfants);
+      } else {
+        // Plusieurs unions : chacune a son bloc, avec ses propres enfants
+        const classes = new Set();
+        for (const u of unions) {
+          const siens = enfants.filter(c => c.pere === u.q.id || c.mere === u.q.id);
+          siens.forEach(c => classes.add(c.id));
+          h += '<div class="unionFam"><h3>Union avec ' + echapper(nomComplet(u.q)) + "</h3>" + mini(u.q) +
+            (texteUnion(u) ? '<p class="doux">' + echapper(texteUnion(u)) + "</p>" : "") +
+            "<h3>Enfants de cette union</h3>" + (siens.length ? siens.map(mini).join("") : '<p class="doux">—</p>') + "</div>";
+        }
+        const autres = enfants.filter(c => !classes.has(c.id));
+        if (autres.length) h += '<div class="unionFam"><h3>Enfants d’un autre parent ou d’un parent inconnu</h3>' + autres.map(mini).join("") + "</div>";
+      }
+      z.innerHTML = h;
     }
 
     function afficherDocs() {
@@ -996,12 +1119,17 @@
 
     // Un "noeud" = une personne (avec son conjoint) et tous ses descendants
     function noeud(p, vus) {
-      const conj = p.conjoint && trouver(p.conjoint);
+      const unions = unionsChrono(p);
+      const conj = unions.length === 1 ? unions[0].q : null;
       vus.add(p.id);
-      if (conj) vus.add(conj.id);
+      unions.forEach(u => vus.add(u.q.id));
 
       let html = '<div class="couple">';
-      if (conj) {
+      if (unions.length > 1) {
+        // Plusieurs unions : la personne au centre, ses conjoints à la suite
+        html += carte(p);
+        for (const u of unions) html += '<span class="lien"><span class="trait"></span></span>' + carte(u.q);
+      } else if (conj) {
         const [a, b] = (p.sexe === "F" && conj.sexe === "H") ? [conj, p] : [p, conj];
         const date = p.mariage || conj.mariage;
         const lieu = p.lieuMariage || conj.lieuMariage;
@@ -1100,46 +1228,75 @@
 
       // Ligne de la personne : fratrie (+ conjoint à côté d'elle)
       const sibs = R.fratrie ? personnes.filter(c => c.id !== f0.id && ((f0.pere && c.pere === f0.pere) || (f0.mere && c.mere === f0.mere))) : [];
-      const conj = R.conjoint && f0.conjoint ? trouver(f0.conjoint) : null;
+      // Conjoints : si plusieurs unions, la 1re à gauche de la personne, les suivantes à sa droite
+      const unis = R.conjoint ? unionsChrono(f0) : [];
+      const multi = unis.length >= 2;
+      // Plusieurs unions : tous les conjoints à gauche, la 1re union tout contre la personne, la dernière tout au bout
+      const gauche = multi ? unis.slice().reverse() : [], droite = multi ? [] : unis;
       const items = [];
       for (const q of parNaissance(sibs.concat([f0]))) {
+        if (q === f0) gauche.forEach(u => items.push({ p: u.q, sib: false, u: u }));
         items.push({ p: q, sib: true });
-        if (q === f0 && conj) items.push({ p: conj, sib: false });
+        if (q === f0) droite.forEach(u => items.push({ p: u.q, sib: false, u: u }));
       }
       const start = M - (items.length - 1) / 2;
-      let xf = 0, xsp = 0;
+      let xf = 0;
+      const spx = [];   // position de chaque conjoint
       items.forEach((it, i) => {
         it.x = start + i;
         noeuds.push({ p: it.p, x: it.x, row: 0 });
         if (it.p === f0) xf = it.x;
-        if (conj && it.p === conj) xsp = it.x;
+        if (it.u) spx.push({ u: it.u, x: it.x, i: unis.indexOf(it.u), col: null });
       });
       if (G >= 1) fam.push({ x: M, row: 1, lien: true, xs: items.filter(it => it.sib).map(it => it.x), rowK: 0 });
-      if (conj) couples.push({ row: 0, a: xf, b: xsp });
+      // Plusieurs unions : un point numéroté à droite de chaque conjoint, d'où partent ses enfants
+      for (const s of spx) couples.push({ row: 0, a: Math.min(xf, s.x), b: Math.max(xf, s.x), dot: multi ? s.x + 0.5 : undefined, num: multi ? s.i + 1 : 0 });
 
-      // Descendants
+      // Descendants : un groupe d'enfants par union, chacun rattaché à son couple
       if (D >= 1) {
-        const kids = parNaissance(personnes.filter(c => c.pere === f0.id || c.mere === f0.id || (conj && (c.pere === conj.id || c.mere === conj.id))));
-        if (kids.length) {
-          let loc = 0;
-          const nd = [], fd = [];
-          const descLay = (q, lvl) => {
-            const k = lvl < D ? parNaissance(personnes.filter(c => c.pere === q.id || c.mere === q.id)) : [];
-            let x;
-            if (k.length) {
-              const xs = k.map(c => descLay(c, lvl + 1));
-              x = (xs[0] + xs[xs.length - 1]) / 2;
-              fd.push({ x: x, row: -lvl, lien: false, xs: xs, rowK: -(lvl + 1) });
-            } else x = loc++;
-            nd.push({ p: q, x: x, row: -lvl });
-            return x;
-          };
-          const xsK = kids.map(c => descLay(c, 1));
-          const ax = conj ? (xf + xsp) / 2 : xf, dec = ax - (xsK[0] + xsK[xsK.length - 1]) / 2;
-          nd.forEach(n => { n.x += dec; noeuds.push(n); });
-          fd.forEach(f => { f.x += dec; f.xs = f.xs.map(v => v + dec); fam.push(f); });
-          fam.push({ x: ax, row: 0, lien: !!conj, xs: xsK.map(v => v + dec), rowK: -1 });
+        const groupes = [];
+        if (unis.length <= 1) {
+          const conj = unis[0] && unis[0].q, xsp = spx.length ? spx[0].x : 0;
+          groupes.push({ kids: parNaissance(personnes.filter(c => c.pere === f0.id || c.mere === f0.id || (conj && (c.pere === conj.id || c.mere === conj.id)))),
+                         ax: conj ? (xf + xsp) / 2 : xf, lien: !!conj });
+        } else {
+          const ids = unis.map(u => u.q.id), siens = personnes.filter(c => c.pere === f0.id || c.mere === f0.id);
+          for (const s of spx) {
+            groupes.push({ kids: parNaissance(siens.filter(c => c.pere === s.u.q.id || c.mere === s.u.q.id)),
+                           ax: s.x + 0.5, lien: true });
+          }
+          groupes.push({ kids: parNaissance(siens.filter(c => !ids.includes(c.pere) && !ids.includes(c.mere))), ax: xf, lien: false });
+          groupes.sort((a, b) => a.ax - b.ax);
         }
+        let loc = 0, fin = -Infinity;
+        const nd = [], fd = [];
+        const descLay = (q, lvl) => {
+          const k = lvl < D ? parNaissance(personnes.filter(c => c.pere === q.id || c.mere === q.id)) : [];
+          let x;
+          if (k.length) {
+            const xs = k.map(c => descLay(c, lvl + 1));
+            x = (xs[0] + xs[xs.length - 1]) / 2;
+            fd.push({ x: x, row: -lvl, lien: false, xs: xs, rowK: -(lvl + 1) });
+          } else x = loc++;
+          nd.push({ p: q, x: x, row: -lvl });
+          return x;
+        };
+        for (const g of groupes) {
+          if (!g.kids.length) continue;
+          const n0 = nd.length, f0i = fd.length;
+          loc = 0;
+          const xsK = g.kids.map(c => descLay(c, 1));
+          let dec = g.ax - (xsK[0] + xsK[xsK.length - 1]) / 2;
+          const mine = nd.slice(n0);
+          const gmin = Math.min.apply(null, mine.map(n => n.x));
+          if (gmin + dec < fin + 1) dec = fin + 1 - gmin;   // les groupes ne se chevauchent pas
+          mine.forEach(n => { n.x += dec; if (g.col && n.row === -1) n.col = g.col; });
+          fd.slice(f0i).forEach(f => { f.x += dec; f.xs = f.xs.map(v => v + dec); });
+          fin = Math.max.apply(null, mine.map(n => n.x));
+          fam.push({ x: g.ax, row: 0, lien: g.lien, xs: xsK.map(v => v + dec), rowK: -1, col: g.col });
+        }
+        nd.forEach(n => noeuds.push(n));
+        fd.forEach(f => fam.push(f));
       }
 
       // Dimensions
@@ -1150,26 +1307,33 @@
       const X = x => PADX + CW / 2 + (x - minX) * SW, Y = r => PADT + (maxRow - r) * RP;
 
       // Traits
-      let d = "", liens = "";
+      let d = "", liens = "", etiq = "";
+      const dc = {};   // traits colorés : un par union quand il y en a plusieurs
       for (const f of fam) {
         const y0 = Y(f.row) + (f.lien ? CH / 2 : CH), yk = Y(f.rowK), yb = yk - 28;
         const lo = Math.min.apply(null, f.xs.concat([f.x])), hi = Math.max.apply(null, f.xs.concat([f.x]));
-        if (f.xs.length === 1 && Math.abs(f.xs[0] - f.x) < 1e-6) d += "M" + X(f.x) + " " + y0 + "V" + yk;
+        let seg = "";
+        if (f.xs.length === 1 && Math.abs(f.xs[0] - f.x) < 1e-6) seg = "M" + X(f.x) + " " + y0 + "V" + yk;
         else {
-          d += "M" + X(f.x) + " " + y0 + "V" + yb + "M" + X(lo) + " " + yb + "H" + X(hi);
-          f.xs.forEach(v => { d += "M" + X(v) + " " + yb + "V" + yk; });
+          seg = "M" + X(f.x) + " " + y0 + "V" + yb + "M" + X(lo) + " " + yb + "H" + X(hi);
+          f.xs.forEach(v => { seg += "M" + X(v) + " " + yb + "V" + yk; });
         }
+        if (f.col) dc[f.col] = (dc[f.col] || "") + seg; else d += seg;
       }
       for (const c of couples) {
-        const y = Y(c.row) + CH / 2, xa = X(c.a) + CW / 2, xb = X(c.b) - CW / 2;
+        const y = Y(c.row) + CH / 2, xa = X(c.a) + CW / 2, xb = X(c.b) - CW / 2, col = c.col || "#a995dc";
         if (xb <= xa) continue;
-        liens += '<line x1="' + xa + '" y1="' + y + '" x2="' + xb + '" y2="' + y + '" stroke="#a995dc" stroke-width="2" stroke-dasharray="2 3"/>' +
-                 '<circle cx="' + (xa + xb) / 2 + '" cy="' + y + '" r="4" fill="#8d77d4"/>';
+        const cx = c.dot !== undefined ? X(c.dot) : (xa + xb) / 2;
+        liens += '<line x1="' + xa + '" y1="' + y + '" x2="' + xb + '" y2="' + y + '" stroke="' + col + '" stroke-width="2" stroke-dasharray="2 3"/>' +
+                 '<circle cx="' + cx + '" cy="' + y + '" r="4" fill="#3b3157"/>';
+        if (c.num) etiq += '<div class="numUnion" title="' + c.num + (c.num === 1 ? "re" : "e") + ' union" style="left:' + (cx - 4) + "px;top:" + (y - 22) + 'px">' + c.num + "</div>";
       }
 
       let html = '<div id="monde" style="width:' + W + "px;height:" + H + 'px"><svg width="' + W + '" height="' + H + '">' +
-        '<path d="' + d + '" fill="none" stroke="#d8cdf0" stroke-width="2"/>' + liens + "</svg>";
-      for (const n of noeuds) html += '<div class="nd" style="left:' + (X(n.x) - CW / 2) + "px;top:" + Y(n.row) + 'px">' + carte(n.p) + "</div>";
+        '<path d="' + d + '" fill="none" stroke="#d8cdf0" stroke-width="2"/>' +
+        Object.keys(dc).map(c => '<path d="' + dc[c] + '" fill="none" stroke="' + c + '" stroke-width="3"/>').join("") + liens + "</svg>" + etiq;
+      for (const n of noeuds) html += '<div class="nd" style="left:' + (X(n.x) - CW / 2) + "px;top:" + Y(n.row) + "px" +
+        (n.col ? ";border-radius:14px;box-shadow:0 0 0 3px " + n.col : "") + '">' + carte(n.p) + "</div>";
       for (const h of phs) html += '<button type="button" class="ph" data-ph="' + h.t + '" data-pour="' + h.pour + '" style="left:' + (X(h.x) - CW / 2) + "px;top:" + Y(h.row) + 'px">+<span>' + (h.t === "pere" ? "Père" : "Mère") + "</span></button>";
       for (const c of chev) html += '<button type="button" class="chev" data-chev="' + c.id + '" title="Voir ses ancêtres" aria-label="Voir ses ancêtres" style="left:' + (X(c.x) - 14) + "px;top:" + (Y(c.row) - 36) + 'px">︿</button>';
       html += "</div>" +
@@ -1337,7 +1501,7 @@
       for (const q of personnes) {
         if (q.pere) lie(q.id, q.pere, "est enfant de", "est parent de");
         if (q.mere) lie(q.id, q.mere, "est enfant de", "est parent de");
-        if (q.conjoint && q.id < q.conjoint) lie(q.id, q.conjoint, "est conjoint(e) de", "est conjoint(e) de");
+        for (const u of unionsDe(q)) if (q.id < u.q.id) lie(q.id, u.q.id, "est conjoint(e) de", "est conjoint(e) de");
       }
       const prec = new Map([[A.id, null]]);
       let front = [A.id];
@@ -1735,10 +1899,15 @@
           if (!e) continue;
           if (!e.pere && !e.mere) { if (pere) e.pere = pere.id; if (mere) e.mere = mere.id; }
         }
-        if (pere && mere && !pere.conjoint && !mere.conjoint) {
+        if (pere && mere && pere.conjoint !== mere.id) {
           const mar = evt(f, ["MARR"]), div = evt(f, ["DIV"]);
-          for (const [a, b] of [[pere, mere], [mere, pere]]) {
-            a.conjoint = b.id; a.mariage = mar.date; a.lieuMariage = mar.lieu; a.divorce = div.date; a.lieuDivorce = div.lieu;
+          if (!pere.conjoint && !mere.conjoint) {
+            for (const [a, b] of [[pere, mere], [mere, pere]]) {
+              a.conjoint = b.id; a.mariage = mar.date; a.lieuMariage = mar.lieu; a.divorce = div.date; a.lieuDivorce = div.lieu;
+            }
+          } else {   // déjà une union : celle-ci devient une union supplémentaire
+            const d = { mariage: mar.date, lieuMariage: mar.lieu, divorce: div.date, lieuDivorce: div.lieu };
+            poserUnion(pere, mere, d); poserUnion(mere, pere, d);
           }
         }
       }
@@ -2038,10 +2207,13 @@
       for (const p of personnes) {
         ajoute("Naissance", p, p.naissance, p.lieuNaissance);
         ajoute("Décès", p, p.deces, p.lieuDeces);
-        const c = p.conjoint && trouver(p.conjoint);
-        if (!c || p.id < c.id) {   // un seul événement par couple
-          ajoute("Mariage", p, p.mariage || (c && c.mariage), p.lieuMariage || (c && c.lieuMariage), c);
-          ajoute("Divorce", p, p.divorce || (c && c.divorce), p.lieuDivorce || (c && c.lieuDivorce), c);
+        const us = unionsDe(p);
+        if (!us.length) { ajoute("Mariage", p, p.mariage, p.lieuMariage); ajoute("Divorce", p, p.divorce, p.lieuDivorce); }
+        for (const u of us) {
+          if (p.id < u.q.id) {   // un seul événement par couple
+            ajoute("Mariage", p, u.mariage, u.lieuMariage, u.q);
+            ajoute("Divorce", p, u.divorce, u.lieuDivorce, u.q);
+          }
         }
       }
       return ev;
@@ -2338,8 +2510,12 @@
       if (!(x.pere && trouver(x.pere))) boutons.push(["pere", "+ Père"]);
       if (!(x.mere && trouver(x.mere))) boutons.push(["mere", "+ Mère"]);
       if (aDesParents(x)) boutons.push(["frere", "+ Frère / sœur"]);
-      if (!(x.conjoint && trouver(x.conjoint))) boutons.push(["conjoint", "+ Conjoint(e)"]);
-      boutons.push(["enfant", "+ Enfant"]);
+      const us = unionsChrono(x);
+      boutons.push(["conjoint", us.length ? "+ Autre conjoint(e)" : "+ Conjoint(e)"]);
+      if (us.length > 1) {
+        for (const u of us) boutons.push(["enfant:" + u.q.id, "+ Enfant avec " + (u.q.prenom || nomComplet(u.q))]);
+        boutons.push(["enfant:", "+ Enfant (autre parent)"]);
+      } else boutons.push(["enfant", "+ Enfant"]);
 
       div.innerHTML = "<p>Ajouter un proche de " + echapper(x.prenom || "cette personne") + " :</p>" +
         boutons.map(b => '<button type="button" data-rel="' + b[0] + '">' + b[1] + "</button>").join("") +
@@ -2399,6 +2575,7 @@
       remplirListes();
       const p = trouver(id);
       for (const k of CHAMPS) $(k).value = p[k] || "";
+      rendreUnions(p);
       $("militaire").open = !!(p.armee || p.unite || p.grade || p.periodeMilitaire || p.matricule);
       onglet = "fiche";
       majFiche();
@@ -2412,6 +2589,7 @@
       $("formulaire").reset();
       $("militaire").open = false;
       remplirListes();
+      rendreUnions(null);
 
       const x = relation && trouver(relation.ref);
       if (x) {
@@ -2423,8 +2601,10 @@
           $("nom").value = x.nom || "";
         }
         if (relation.type === "enfant") {
-          if (x.sexe === "F") { $("mere").value = x.id; $("pere").value = x.conjoint || ""; }
-          else { $("pere").value = x.id; $("mere").value = x.conjoint || ""; }
+          const us = unionsChrono(x);
+          const autre = relation.avec !== undefined ? relation.avec : (us.length === 1 ? us[0].q.id : "");
+          if (x.sexe === "F") { $("mere").value = x.id; $("pere").value = autre; }
+          else { $("pere").value = x.id; $("mere").value = autre; }
         }
         if (relation.type === "conjoint") { $("conjoint").value = x.id; }
       }
@@ -2438,14 +2618,20 @@
     function lierParents(q) {
       const a = q.pere && trouver(q.pere);
       const b = q.mere && trouver(q.mere);
-      if (a && b && !a.conjoint && !b.conjoint) {
-        a.conjoint = b.id;
-        b.conjoint = a.id;
+      if (a && b && a.id !== b.id && !unionsDe(a).some(u => u.q.id === b.id)) {
+        if (!a.conjoint && !b.conjoint) {
+          a.conjoint = b.id;
+          b.conjoint = a.id;
+        } else {   // l'un des deux a déjà une union : celle-ci s'ajoute aux autres
+          poserUnion(a, b, {});
+          poserUnion(b, a, {});
+        }
       }
     }
 
     $("formulaire").addEventListener("submit", function (e) {
       e.preventDefault();
+      if (LECTURE) return;
       const prenom = $("prenom").value.trim();
       const nom = $("nom").value.trim();
       if (!prenom && !nom) { dire("Indiquez au moins un prénom ou un nom."); return; }
@@ -2470,15 +2656,31 @@
       if (p.conjoint) {
         const o = trouver(p.conjoint);
         if (o.conjoint && o.conjoint !== p.id) {
+          // L'ancienne union principale de o n'est pas perdue : elle devient une "autre union"
           const autre = trouver(o.conjoint);
-          if (autre && autre.conjoint === o.id) autre.conjoint = "";
+          if (autre && autre.conjoint === o.id) {
+            const d = {}; for (const k of CH_UNION) d[k] = o[k] || "";
+            autre.conjoint = ""; o.conjoint = "";
+            for (const k of CH_UNION) autre[k] = "";
+            poserUnion(o, autre, d); poserUnion(autre, o, d);
+          }
         }
+        retirerUnion(o, p.id);
         o.conjoint = p.id;
         o.mariage = p.mariage;
         o.lieuMariage = p.lieuMariage;
         o.divorce = p.divorce;
         o.lieuDivorce = p.lieuDivorce;
       }
+
+      // Les autres unions (autres maris, autres compagnons…) : enregistrées des deux côtés
+      const dejaLa = (p.unions || []).map(u => u.avec);
+      const nouvellesUnions = lireUnions().filter(u => u.avec !== p.id && u.avec !== p.conjoint && trouver(u.avec));
+      for (const id of dejaLa) {
+        if (!nouvellesUnions.some(u => u.avec === id)) { const o = trouver(id); if (o) { retirerUnion(o, p.id); if (o.conjoint === p.id && p.conjoint !== o.id) { o.conjoint = ""; for (const k of CH_UNION) o[k] = ""; } } }
+      }
+      if (nouvellesUnions.length) p.unions = nouvellesUnions; else delete p.unions;
+      for (const u of nouvellesUnions) poserUnion(trouver(u.avec), p, u);
 
       // Un père et une mère communs forment un couple
       lierParents(p);
@@ -2524,7 +2726,20 @@
 
     $("relations").addEventListener("click", function (e) {
       const t = e.target.dataset.rel;
-      if (t) { nouvelle({ type: t, ref: choix }); dire(""); }
+      if (t) {
+        const [type, avec] = t.split(":");
+        nouvelle({ type: type, ref: choix, avec: avec });
+        dire("");
+      }
+    });
+
+    $("ajoutUnion").addEventListener("click", function () {
+      $("autresUnions").insertAdjacentHTML("beforeend", ligneUnion({}));
+    });
+
+    $("autresUnions").addEventListener("click", function (e) {
+      const b = e.target.closest("[data-retirer]");
+      if (b) b.closest(".union").remove();
     });
 
     $("nouveau").addEventListener("click", function () { nouvelle(null); dire(""); });
@@ -2546,6 +2761,7 @@
         for (const k of ["pere", "mere", "conjoint"]) {
           if (p[k] === id) p[k] = "";
         }
+        retirerUnion(p, id);
       }
       sauvegarder();
       nouvelle(null);
@@ -2845,6 +3061,27 @@
       const SUPABASE_URL = "https://tivocfxqlfqgwaxozzyo.supabase.co";
       const SUPABASE_KEY = "sb_publishable_O04GGmPmay9DylTpFLfmjw_Y4_tR2cL";
       const bouton = document.getElementById("btnCloud");
+
+      // ---- Un proche ouvre un lien de partage : on charge l'arbre en lecture seule, sans session ni stockage local ----
+      if (LECTURE) {
+        bouton.hidden = true;
+        const bandeau = t => { document.getElementById("bandeauLecture").textContent = t; };
+        if (!window.supabase) { bandeau("Impossible de charger l'arbre partagé : connexion internet requise."); return; }
+        const anon = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY,
+          { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+        anon.rpc("lire_partage", { p_token: LECTURE }).then(function (r) {
+          if (r.error || !r.data) { bandeau("Ce lien de partage est invalide ou a été supprimé par son propriétaire."); return; }
+          const a = base.arbres[0];
+          a.nom = r.data.nom || "Arbre partagé";
+          a.personnes = Array.isArray(r.data.personnes) ? r.data.personnes : [];
+          personnes = a.personnes;
+          dernier = r.data.racine && trouver(r.data.racine) ? r.data.racine : (personnes[0] ? personnes[0].id : null);
+          choix = null;
+          aller("arbre");
+        });
+        return;
+      }
+
       if (!window.supabase || SUPABASE_URL.indexOf("COLLE") === 0) { bouton.hidden = true; return; }
 
       const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2859,9 +3096,32 @@
         if (!user) return;
         etat("☁ Envoi…");
         const r = await sb.from("arbres").upsert({ user_id: user.id, data: base, updated_at: new Date().toISOString() });
+        if (!r.error) await majPartages();
         etat(r.error ? "☁ Erreur" : "☁ Synchronisé");
         if (r.error) console.error(r.error);
         msg(r.error ? "Erreur : " + r.error.message : "Sauvegardé ✔");
+      }
+
+      // ---- Partage en lecture seule : un lien secret par arbre (copie mise à jour à chaque sauvegarde) ----
+      let partagesIds = new Set();   // arbres qui ont au moins un lien actif
+
+      const jeton = () => Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, "0")).join("");
+      const instantane = a => ({ nom: a.nom, racine: a.id === base.courant ? (choix || dernier || null) : null, personnes: a.personnes || [] });
+
+      async function chargerPartages() {
+        const r = await sb.from("partages").select("token,arbre_id,nom,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false });
+        if (r.error) { console.error(r.error); return null; }
+        partagesIds = new Set(r.data.map(x => x.arbre_id));
+        return r.data;
+      }
+
+      async function majPartages() {
+        for (const id of partagesIds) {
+          const a = base.arbres.find(x => x.id === id);
+          if (!a) continue;
+          const r = await sb.from("partages").update({ data: instantane(a), nom: a.nom, updated_at: new Date().toISOString() }).eq("user_id", user.id).eq("arbre_id", id);
+          if (r.error) console.error(r.error);
+        }
       }
 
       window.cloudPlanifier = function () {
@@ -2886,7 +3146,54 @@
             return;
           }
         }
+        await chargerPartages();
         await pousser();
+      }
+
+      // Adresse publique du site (là où tes proches ouvriront le lien)
+      const adresseSite = () => { try { return localStorage.getItem("adresse-site") || ""; } catch (e) { return ""; } };
+      const adresseDefaut = () => adresseSite() || (/^https?:/.test(location.href) && !/localhost|127\.0\.0\.1/.test(location.hostname) ? location.href.split("#")[0] : "https://kassandrahaas27-spec.github.io/arbre/");
+
+      async function rendrePartages() {
+        const zone = document.getElementById("cPartages");
+        if (!zone) return;
+        const liste = await chargerPartages();
+        if (!liste) { zone.textContent = "Partage indisponible : exécute d'abord la dernière partie de supabase.sql dans Supabase."; return; }
+        zone.innerHTML = "";
+        if (!liste.length) { zone.innerHTML = '<p class="doux">Aucun lien actif.</p>'; return; }
+        for (const p of liste) {
+          const div = document.createElement("div");
+          div.className = "unionFam";
+          const t = document.createElement("b"); t.textContent = p.nom || "Arbre"; div.appendChild(t);
+          const champ = document.createElement("input");
+          champ.readOnly = true; champ.value = (adresseDefaut() || "(adresse du site à renseigner)") + "#partage=" + p.token;
+          champ.onfocus = () => champ.select();
+          div.appendChild(champ);
+          const copier = document.createElement("button");
+          copier.type = "button"; copier.className = "action clair"; copier.textContent = "Copier le lien";
+          copier.onclick = async () => { try { await navigator.clipboard.writeText(champ.value); msg("Lien copié ✔"); } catch (e) { champ.select(); msg("Sélectionné : copie-le avec Ctrl+C."); } };
+          const retirer = document.createElement("button");
+          retirer.type = "button"; retirer.className = "action clair"; retirer.textContent = "Supprimer le lien";
+          retirer.onclick = async () => {
+            if (!confirm("Supprimer ce lien ? Les personnes qui l'ont ne pourront plus voir l'arbre.")) return;
+            const r = await sb.from("partages").delete().eq("token", p.token).eq("user_id", user.id);
+            msg(r.error ? "Erreur : " + r.error.message : "Lien supprimé ✔");
+            rendrePartages();
+          };
+          div.appendChild(copier); div.appendChild(retirer);
+          zone.appendChild(div);
+        }
+      }
+
+      async function creerPartage() {
+        const adr = document.getElementById("cAdr").value.trim();
+        if (!/^https:\/\//.test(adr)) { msg("Indique d'abord l'adresse publique de ton site (elle commence par https://)."); return; }
+        try { localStorage.setItem("adresse-site", adr.split("#")[0]); } catch (e) {}
+        const a = arbreCourant();
+        msg("…");
+        const r = await sb.from("partages").insert({ token: jeton(), user_id: user.id, arbre_id: a.id, nom: a.nom, data: instantane(a) });
+        msg(r.error ? "Erreur : " + r.error.message : "Lien créé ✔ (copie-le ci-dessous)");
+        rendrePartages();
       }
 
       function rendre() {
@@ -2894,10 +3201,23 @@
           corps.innerHTML = '<p>Connecté : <b></b></p>' +
             '<button type="button" class="action" id="cSave">Sauvegarder maintenant</button>' +
             '<button type="button" class="action clair" id="cOut">Se déconnecter</button>' +
+            '<div class="groupe"><h3>Partager en lecture seule</h3>' +
+            '<p class="doux">Crée un lien secret : toute personne qui l’a peut <b>consulter</b> l’arbre actuel (fiches, photos et notes comprises), sans pouvoir le modifier. ' +
+            'Envoie-le seulement à tes proches, par message privé. Le lien reste à jour à chaque sauvegarde ; supprime-le pour couper l’accès.</p>' +
+            '<label for="cAdr">Adresse publique de ton site</label><input id="cAdr" type="url" placeholder="https://ton-nom.github.io/arbre/">' +
+            '<button type="button" class="action" id="cShare">Créer un lien pour cet arbre</button>' +
+            '<div id="cPartages"></div></div>' +
             '<p id="cloudMsg"></p>';
           corps.querySelector("b").textContent = user.email;
+          document.getElementById("cAdr").value = adresseDefaut();
+          document.getElementById("cAdr").addEventListener("change", function () {
+            try { localStorage.setItem("adresse-site", this.value.trim().split("#")[0]); } catch (e) {}
+            rendrePartages();
+          });
           document.getElementById("cSave").onclick = pousser;
+          document.getElementById("cShare").onclick = creerPartage;
           document.getElementById("cOut").onclick = async function () { await sb.auth.signOut(); dlg.close(); };
+          rendrePartages();
         } else {
           corps.innerHTML = '<p class="doux">Connecte-toi pour retrouver tes arbres sur tous tes appareils.</p>' +
             '<label for="cMail">E-mail</label><input id="cMail" type="email" autocomplete="email">' +
