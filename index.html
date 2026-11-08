@@ -412,6 +412,26 @@
     .cloudCorps input { width: 100%; font: inherit; padding: 9px 11px; border: 1px solid #ddd5ee; border-radius: 8px; }
     .cloudCorps .action { margin-bottom: 0; }
     #cloudMsg { margin: 12px 0 0; font-size: 14px; color: var(--doux); min-height: 20px; }
+
+    /* ===== Fiche repliable et page proportionnelle à l'écran ===== */
+    #page { grid-template-columns: minmax(0, 1fr) clamp(320px, 28vw, 440px); }
+    #page.ficheOff { grid-template-columns: minmax(0, 1fr); }
+    #page.ficheOff #fiche { display: none; }
+    #fiche { position: sticky; top: 12px; max-height: calc(100vh - 92px); overflow-y: auto; overflow-x: hidden; }
+    #entete { padding-right: 56px; }
+    #fermerFiche { position: absolute; top: 10px; right: 12px; z-index: 2; width: 32px; height: 32px; border: 0;
+                   border-radius: 50%; background: rgba(255, 255, 255, .22); color: #fff; font-size: 16px; cursor: pointer; }
+    #fermerFiche:hover { background: rgba(255, 255, 255, .38); }
+    .teteBtns { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: flex-end; }
+    #btnFiche { font-weight: 700; text-decoration: none; background: #f0e9fa; padding: 7px 14px; border-radius: 20px; }
+    #btnFiche:hover { background: #e6ddf7; }
+    #arbre.pedigree { height: calc(100vh - 312px); min-height: 380px; }
+    @media (max-width: 900px) {
+      #page { grid-template-columns: 1fr; }
+      #fiche { position: static; max-height: none; overflow: visible; }
+      #arbre.pedigree { height: 70vh; }
+    }
+    @media print { #fiche { display: none !important; } }
   </style>
 </head>
 <body>
@@ -459,7 +479,10 @@
           <h2 id="nomArbre"></h2>
           <p id="majArbre"></p>
         </div>
-        <button type="button" id="renommerArbre" class="lien-btn">Renommer</button>
+        <div class="teteBtns">
+          <button type="button" id="btnFiche" class="lien-btn" aria-expanded="true">Masquer la fiche ▸</button>
+          <button type="button" id="renommerArbre" class="lien-btn">Renommer</button>
+        </div>
       </div>
       <div id="outils" role="toolbar" aria-label="Outils">
         <button type="button" data-o="recherche"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="M15 15l5 5"/><circle cx="10" cy="8" r="1.6"/><path d="M7 12.5c1-1.4 5-1.4 6 0"/></svg>Recherche</button>
@@ -474,6 +497,7 @@
     </main>
 
     <aside id="fiche">
+      <button type="button" id="fermerFiche" title="Replier la fiche" aria-label="Replier la fiche">✕</button>
       <div id="entete"></div>
       <div id="relations"></div>
       <div id="onglets">
@@ -1842,6 +1866,7 @@
 
     function aller(page, opts) {
       pageCourante = page;
+      if (opts && opts.formulaire) afficherFiche(true, false);
       $("accueil").hidden = page !== "accueil";
       $("page").hidden = page !== "arbre";
       $("btnAccueil").classList.toggle("actif", page === "accueil");
@@ -1857,6 +1882,7 @@
     }
 
     function ouvrirPersonne(arbreId, id, ong) {
+      afficherFiche(true, false);
       if (arbreId && arbreId !== base.courant) changerArbre(arbreId);
       if (trouver(id)) {
         ouvrir(id);
@@ -2326,6 +2352,7 @@
     }
 
     function nouvelle(relation) {
+      if (relation) afficherFiche(true, false);
       choix = null;
       ajout = relation || null;
       $("formulaire").reset();
@@ -2704,6 +2731,33 @@
       geoBloque = false;
       majMarqueurs(true);
     });
+
+    // ----- Fiche repliable + recadrage selon la taille de l'écran -----
+    const CLE_FICHE = "fiche-repliee";
+    function afficherFiche(oui, recadrer) {
+      $("page").classList.toggle("ficheOff", !oui);
+      $("btnFiche").textContent = oui ? "Masquer la fiche ▸" : "◂ Afficher la fiche";
+      $("btnFiche").setAttribute("aria-expanded", String(oui));
+      try { localStorage.setItem(CLE_FICHE, oui ? "0" : "1"); } catch (e) {}
+      if (recadrer !== false) setTimeout(function () {
+        if (pageCourante === "arbre" && $("monde")) vueCentre($("arbre"), true);
+        if (carteLeaflet) carteLeaflet.invalidateSize();
+      }, 120);
+    }
+    $("btnFiche").addEventListener("click", function () { afficherFiche($("page").classList.contains("ficheOff")); });
+    $("fermerFiche").addEventListener("click", function () { afficherFiche(false); });
+    let minuteurRedim = null;
+    function recadrerVue() {
+      clearTimeout(minuteurRedim);
+      minuteurRedim = setTimeout(function () {
+        if (pageCourante !== "arbre") return;
+        if ($("monde")) vueCentre($("arbre"), false);
+        if (carteLeaflet) carteLeaflet.invalidateSize();
+      }, 90);
+    }
+    window.addEventListener("resize", recadrerVue);
+    if (window.ResizeObserver) new ResizeObserver(recadrerVue).observe($("zoneArbre"));
+    try { if (localStorage.getItem(CLE_FICHE) === "1") afficherFiche(false, false); } catch (e) {}
 
     aller("accueil");
     nouvelle(null);
