@@ -295,6 +295,65 @@
     #aArbres, #aPhotos, #aJour { grid-column: span 2; }
     @media (max-width: 900px) { #accueil > section { grid-column: span 6 !important; } #accueil { padding: 12px; } }
     #accueil h2 { margin: 0 0 8px; font-size: 20px; color: var(--indigo); }
+
+    /* ----- Page « Mon profil » ----- */
+    #profil { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 20px; padding: 20px; max-width: 1100px; margin: 0 auto; align-items: start; }
+    #profil[hidden] { display: none; }
+    #profil > section { background: #fff; border-radius: 16px; padding: 18px 22px; min-width: 0; box-shadow: 0 2px 14px rgba(120, 90, 180, .08); }
+    #profil h2 { margin: 0 0 10px; font-size: 20px; color: var(--indigo); display: flex; align-items: center; gap: 8px; }
+    #pLiens, #profil .pMsg { grid-column: 1 / -1; }
+    #profil label { display: block; font-weight: 600; font-size: 13px; margin: 0 0 4px; }
+    #profil input, #profil select { width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; padding: 8px 10px; border: 1px solid #ddd5ee; border-radius: 8px; background: #fcfaff; }
+    #profil button.action { margin: 12px 8px 0 0; }
+    .pId { display: flex; align-items: center; gap: 12px; margin: 4px 0 6px; min-width: 0; }
+    .pId b { display: block; overflow-wrap: anywhere; }
+    .pId small { display: block; font-size: 13px; }
+    .pAvatar { flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #ebe3f8; color: var(--indigo); font-weight: 700; }
+    .pForm { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+    #profil .pForm button.action { margin: 0; height: 40px; }
+    .pAvance { margin-top: 12px; font-size: 13px; color: #7a6f92; }
+    .pAvance summary { cursor: pointer; }
+    .pAvance input { margin-top: 6px; }
+    .pNouveau { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: #eefaf3; border: 1px solid #bfe6cf; }
+    .pNouveau b { display: block; margin-bottom: 8px; color: #23704a; }
+    .pNouveau div { display: flex; gap: 8px; }
+    .pNouveau input { flex: 1; min-width: 0; }
+    .pTete { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+    .pTete h2 { margin: 0 !important; }
+    .pNb { font-size: 13px; font-weight: 700; color: #fff; background: var(--violet); border-radius: 20px; padding: 1px 9px; }
+    .pNb:empty { display: none; }
+    .pOutils { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pOutils input { width: 220px !important; }
+    .pOutils select { width: auto !important; }
+    .pOutils select[hidden] { display: none; }
+    table.pTable { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .pTable th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #8a7fa3; font-weight: 700; padding: 8px; border-bottom: 1px solid #ece6f3; }
+    .pTable td { padding: 9px 8px; border-bottom: 1px solid #f3eff9; vertical-align: middle; }
+    .pTable tr.pRecent td { background: #f3fbf6; }
+    .pTable tbody tr:hover td { background: #faf7ff; }
+    .pDest { display: flex; align-items: center; gap: 10px; }
+    .pDest .pAvatar { width: 30px; height: 30px; font-size: 13px; }
+    .pDate { color: #7a6f92; white-space: nowrap; }
+    .pAct { text-align: right; white-space: nowrap; }
+    .pBtn { font: inherit; font-size: 13px; font-weight: 600; padding: 5px 10px; margin-left: 4px; border-radius: 8px; border: 1px solid #d9d0ea; background: #fff; color: var(--violet); cursor: pointer; text-decoration: none; display: inline-block; }
+    .pBtn:hover { background: #f6f1fb; }
+    .pBtn.danger { color: #b0365f; border-color: #efcfdb; }
+    .pBtn.danger:hover { background: #fdf1f5; }
+    .pBtn.plein { background: var(--violet); color: #fff; border-color: var(--violet); }
+    .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    #profil .pMsg { margin: 0; min-height: 1.2em; color: var(--indigo); font-weight: 600; text-align: center; }
+    @media (max-width: 820px) {
+      #profil { grid-template-columns: 1fr; padding: 12px; }
+      .pForm { grid-template-columns: 1fr; }
+      .pOutils, .pOutils input { width: 100% !important; }
+      .pTable thead { display: none; }
+      .pTable, .pTable tbody, .pTable tr, .pTable td { display: block; }
+      .pTable tr { border: 1px solid #ece6f3; border-radius: 12px; padding: 8px 10px; margin-bottom: 10px; }
+      .pTable td { border: 0; padding: 4px 0; }
+      .pTable td[data-l]::before { content: attr(data-l) " : "; color: #8a7fa3; }
+      .pAct { text-align: left; white-space: normal; }
+      .pBtn { margin: 6px 6px 0 0; }
+    }
     #accueil h3 { margin: 14px 0 8px; font-size: 15px; color: var(--indigo); }
     #formRech { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
     #formRech input { flex: 1 1 180px; font: inherit; font-size: 15px; padding: 9px 12px; border: 1px solid #ddd5ee; border-radius: 8px; background: #fff; }
@@ -542,6 +601,8 @@
     <section id="aPhotos"></section>
     <section id="aJour"></section>
   </div>
+
+  <div id="profil" hidden></div>
 
   <div id="page">
     <main id="zoneArbre">
@@ -2117,9 +2178,13 @@
       if (opts && opts.formulaire) afficherFiche(true, false);
       $("accueil").hidden = page !== "accueil";
       $("page").hidden = page !== "arbre";
+      $("profil").hidden = page !== "profil";
       $("btnAccueil").classList.toggle("actif", page === "accueil");
+      $("btnCloud").classList.toggle("actif", page === "profil");
       if (page === "accueil") {
         afficherAccueil();
+      } else if (page === "profil") {
+        if (window.afficherProfil) window.afficherProfil();
       } else {
         if (!choix && !ajout && personnes.length && !(opts && opts.formulaire)) ouvrir(dernier || personnes[0].id);
         else majFiche();
@@ -3197,7 +3262,7 @@
       let user = null, minuteur = null, dejaSynchro = null;
 
       const nbPers = b => (b && b.arbres ? b.arbres.reduce((n, a) => n + (a.personnes || []).length, 0) : 0);
-      const msg = t => { const m = document.getElementById("cloudMsg"); if (m) m.textContent = t; };
+      const msg = t => { for (const id of ["cloudMsg", "pMsg"]) { const m = document.getElementById(id); if (m) m.textContent = t; } };
       const etat = t => { bouton.textContent = t; };
 
       async function pousser() {
@@ -3273,98 +3338,168 @@
         return m && !/\.github\.io\//.test(m) ? m : ADRESSE_PUBLIQUE;   // une ancienne adresse github.io mémorisée est ignorée
       };
 
-      async function rendrePartages() {
-        const zone = document.getElementById("cPartages");
-        if (!zone) return;
-        const liste = await chargerPartages();
-        if (!liste) { zone.textContent = "Partage indisponible : exécute d'abord la dernière partie de supabase.sql dans Supabase."; return; }
-        zone.innerHTML = "";
-        if (!colonneDest) {
-          const av = document.createElement("p");
-          av.className = "doux";
-          av.textContent = "⚠ Pour nommer les destinataires, lance d'abord dans Supabase la partie « UN LIEN PAR DESTINATAIRE » de supabase.sql.";
-          zone.appendChild(av);
+      // ---------- Page « Mon profil » : compte + liens de partage ----------
+      let liensCache = [], filtreLiens = { q: "", arbre: "" }, dernierLien = null;
+      const lienDe = token => adresseDefaut() + "#partage=" + token;
+      const dateFr = d => new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+      const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+      const option = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; return o; };
+
+      async function copier(texte) {
+        try { await navigator.clipboard.writeText(texte); msg("Lien copié ✔ Tu peux le coller dans un message privé."); }
+        catch (e) { prompt("Copie ce lien :", texte); }
+      }
+
+      window.afficherProfil = function () {
+        const z = document.getElementById("profil");
+        if (!user) { z.innerHTML = ""; aller("accueil"); rendre(); dlg.showModal(); return; }
+        z.innerHTML =
+          '<section id="pCompte"><h2>Mon compte</h2>' +
+            '<div class="pId"><span class="pAvatar" aria-hidden="true"></span><div><b id="pMail"></b><small class="doux">Tes arbres sont sauvegardés automatiquement dans le cloud.</small></div></div>' +
+            '<button type="button" class="action" id="pSave">Sauvegarder maintenant</button>' +
+            '<button type="button" class="action clair" id="pOut">Se déconnecter</button></section>' +
+          '<section id="pCreer"><h2>Partager un arbre</h2>' +
+            '<p class="doux">Un lien par personne, en lecture seule : tu sais qui a quel lien et tu peux couper l’accès d’une seule personne. Le lien suit tes modifications à chaque sauvegarde.</p>' +
+            '<div class="pForm"><div><label for="cArbre">Arbre</label><select id="cArbre"></select></div>' +
+            '<div><label for="cDest">Pour qui ?</label><input id="cDest" maxlength="80" placeholder="ex. Marie" autocomplete="off"></div>' +
+            '<button type="button" class="action" id="cShare">Créer le lien</button></div>' +
+            '<div id="pNouveau" class="pNouveau" hidden></div>' +
+            '<details class="pAvance"><summary>Adresse du site utilisée dans les liens</summary><input id="cAdr" type="url" aria-label="Adresse du site"></details></section>' +
+          '<section id="pLiens"><div class="pTete"><h2>Mes liens de partage <span id="pNb" class="pNb"></span></h2>' +
+            '<div class="pOutils"><input id="pRech" type="search" placeholder="Rechercher un nom" aria-label="Rechercher un destinataire">' +
+            '<select id="pFiltreArbre" aria-label="Filtrer par arbre"></select></div></div>' +
+            '<div id="pTable"></div></section>' +
+          '<p id="pMsg" class="pMsg" role="status"></p>';
+        document.getElementById("pMail").textContent = user.email;
+        z.querySelector(".pAvatar").textContent = (user.email || "?").charAt(0).toUpperCase();
+        const selA = document.getElementById("cArbre");
+        for (const a of base.arbres) {
+          const o = option(a.id, (a.nom || "Arbre") + " (" + (a.personnes || []).length + ")");
+          if (a.id === base.courant) o.selected = true;
+          selA.appendChild(o);
         }
-        if (!liste.length) { zone.insertAdjacentHTML("beforeend", '<p class="doux">Aucun lien actif.</p>'); return; }
-        const h = document.createElement("h3"); h.textContent = "Liens actifs (" + liste.length + ")"; zone.appendChild(h);
-        for (const p of liste) {
-          const div = document.createElement("div");
-          div.className = "unionFam";
-          const t = document.createElement("b");
-          t.textContent = (p.destinataire ? "Pour " + p.destinataire : "Destinataire non précisé") + " — arbre « " + (p.nom || "Arbre") + " »";
-          div.appendChild(t);
-          const d = document.createElement("small");
-          d.className = "doux";
-          d.textContent = " · mis à jour le " + new Date(p.updated_at).toLocaleDateString("fr-FR");
-          div.appendChild(d);
-          const champ = document.createElement("input");
-          champ.readOnly = true; champ.value = (adresseDefaut() || "(adresse du site à renseigner)") + "#partage=" + p.token;
-          champ.onfocus = () => champ.select();
-          div.appendChild(champ);
-          const copier = document.createElement("button");
-          copier.type = "button"; copier.className = "action clair"; copier.textContent = "Copier le lien";
-          copier.onclick = async () => { try { await navigator.clipboard.writeText(champ.value); msg("Lien copié ✔"); } catch (e) { champ.select(); msg("Sélectionné : copie-le avec Ctrl+C."); } };
-          const retirer = document.createElement("button");
-          retirer.type = "button"; retirer.className = "action clair"; retirer.textContent = "Supprimer le lien";
-          retirer.onclick = async () => {
+        document.getElementById("cAdr").value = adresseDefaut();
+        document.getElementById("cAdr").addEventListener("change", function () {
+          try { localStorage.setItem("adresse-site", this.value.trim().split("#")[0]); } catch (e) {}
+          dessinerLiens();
+        });
+        document.getElementById("cShare").onclick = creerPartage;
+        document.getElementById("cDest").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); creerPartage(); } });
+        document.getElementById("pSave").onclick = pousser;
+        document.getElementById("pOut").onclick = async function () { await sb.auth.signOut(); aller("accueil"); };
+        const rech = document.getElementById("pRech");
+        rech.value = filtreLiens.q;
+        rech.addEventListener("input", function () { filtreLiens.q = this.value; dessinerLiens(); });
+        document.getElementById("pFiltreArbre").addEventListener("change", function () { filtreLiens.arbre = this.value; dessinerLiens(); });
+        rendreLiens();
+      };
+
+      async function rendreLiens() {
+        const t = document.getElementById("pTable");
+        if (!t) return;
+        if (!liensCache.length) t.innerHTML = '<p class="doux">Chargement…</p>';
+        const l = await chargerPartages();
+        if (!document.getElementById("pTable")) return;
+        if (!l) { t.innerHTML = '<p class="doux">Partage indisponible : exécute d’abord le SQL de partage dans Supabase.</p>'; return; }
+        liensCache = l;
+        const sel = document.getElementById("pFiltreArbre");
+        const ids = [...new Set(l.map(x => x.arbre_id))];
+        sel.innerHTML = "";
+        sel.appendChild(option("", "Tous les arbres"));
+        for (const id of ids) {
+          const a = base.arbres.find(x => x.id === id);
+          sel.appendChild(option(id, (a && a.nom) || l.find(x => x.arbre_id === id).nom || "Arbre"));
+        }
+        if (!ids.includes(filtreLiens.arbre)) filtreLiens.arbre = "";
+        sel.value = filtreLiens.arbre;
+        sel.hidden = ids.length < 2;
+        dessinerLiens();
+      }
+
+      function dessinerLiens() {
+        const t = document.getElementById("pTable");
+        if (!t) return;
+        const q = norm(filtreLiens.q.trim());
+        const l = liensCache.filter(x => (!filtreLiens.arbre || x.arbre_id === filtreLiens.arbre) &&
+          (!q || norm((x.destinataire || "") + " " + (x.nom || "")).includes(q)));
+        document.getElementById("pNb").textContent = liensCache.length ? String(liensCache.length) : "";
+        t.innerHTML = "";
+        if (!colonneDest) t.appendChild(el("p", "doux", "⚠ Pour nommer les destinataires, lance d'abord dans Supabase la partie « UN LIEN PAR DESTINATAIRE » de supabase.sql."));
+        if (!liensCache.length) { t.appendChild(el("p", "doux", "Aucun lien pour l’instant. Crée le premier juste au-dessus.")); return; }
+        if (!l.length) { t.appendChild(el("p", "doux", "Aucun lien ne correspond à ta recherche.")); return; }
+        const table = el("table", "pTable");
+        table.innerHTML = '<thead><tr><th>Destinataire</th><th>Arbre</th><th>Mis à jour</th><th><span class="vh">Actions</span></th></tr></thead>';
+        const tb = el("tbody");
+        for (const p of l) {
+          const tr = el("tr");
+          if (p.token === dernierLien) tr.className = "pRecent";
+          const td1 = el("td", "pDest");
+          td1.appendChild(el("span", "pAvatar", (p.destinataire || "?").charAt(0).toUpperCase()));
+          td1.appendChild(el("b", null, p.destinataire || "Sans nom"));
+          const td2 = el("td", "pArbreNom", p.nom || "Arbre"); td2.dataset.l = "Arbre";
+          const td3 = el("td", "pDate", dateFr(p.updated_at)); td3.dataset.l = "Mis à jour";
+          const td4 = el("td", "pAct");
+          const bc = el("button", "pBtn plein", "Copier le lien"); bc.type = "button";
+          bc.onclick = () => copier(lienDe(p.token));
+          const bo = el("a", "pBtn", "Aperçu"); bo.href = lienDe(p.token); bo.target = "_blank"; bo.rel = "noopener";
+          bo.title = "Voir ce que voit " + (p.destinataire || "cette personne");
+          const bs = el("button", "pBtn danger", "Supprimer"); bs.type = "button";
+          bs.onclick = async () => {
             if (!confirm("Supprimer le lien" + (p.destinataire ? " de " + p.destinataire : "") + " ? Cette personne ne pourra plus voir l'arbre.")) return;
             const r = await sb.from("partages").delete().eq("token", p.token).eq("user_id", user.id);
-            msg(r.error ? "Erreur : " + r.error.message : "Lien supprimé ✔");
-            rendrePartages();
+            msg(r.error ? "Erreur : " + r.error.message : "Lien" + (p.destinataire ? " de " + p.destinataire : "") + " supprimé ✔");
+            if (p.token === dernierLien) { dernierLien = null; const n = document.getElementById("pNouveau"); if (n) n.hidden = true; }
+            rendreLiens();
           };
-          div.appendChild(copier); div.appendChild(retirer);
-          zone.appendChild(div);
+          td4.append(bc, bo, bs);
+          tr.append(td1, td2, td3, td4);
+          tb.appendChild(tr);
         }
+        table.appendChild(tb);
+        t.appendChild(table);
       }
 
       async function creerPartage() {
-        const adr = document.getElementById("cAdr").value.trim();
-        if (!/^https:\/\//.test(adr)) { msg("Indique d'abord l'adresse publique de ton site (elle commence par https://)."); return; }
+        const champAdr = document.getElementById("cAdr");
+        const adr = champAdr.value.trim();
+        if (!/^https:\/\//.test(adr)) { champAdr.closest("details").open = true; champAdr.focus(); msg("Indique l'adresse publique de ton site (elle commence par https://)."); return; }
         try { localStorage.setItem("adresse-site", adr.split("#")[0]); } catch (e) {}
         const a = base.arbres.find(x => x.id === document.getElementById("cArbre").value) || arbreCourant();
-        const dest = document.getElementById("cDest").value.trim().slice(0, 80);
-        if (!dest) { msg("Indique le nom de la personne qui va recevoir ce lien."); document.getElementById("cDest").focus(); return; }
-        msg("…");
-        const ligne = { token: jeton(), user_id: user.id, arbre_id: a.id, nom: a.nom, data: instantane(a) };
+        const champDest = document.getElementById("cDest");
+        const dest = champDest.value.trim().slice(0, 80);
+        if (!dest) { msg("Indique le nom de la personne qui va recevoir ce lien."); champDest.focus(); return; }
+        msg("Création du lien…");
+        const token = jeton();
+        const ligne = { token: token, user_id: user.id, arbre_id: a.id, nom: a.nom, data: instantane(a) };
         if (colonneDest) ligne.destinataire = dest;
         const r = await sb.from("partages").insert(ligne);
-        if (!r.error) { partagesIds.add(a.id); document.getElementById("cDest").value = ""; }
-        msg(r.error ? "Erreur : " + r.error.message : "Lien créé pour " + dest + " ✔ (copie-le ci-dessous)");
-        rendrePartages();
+        if (r.error) { msg("Erreur : " + r.error.message); return; }
+        partagesIds.add(a.id);
+        champDest.value = "";
+        dernierLien = token;
+        const n = document.getElementById("pNouveau");
+        n.innerHTML = "";
+        n.appendChild(el("b", null, "✔ Lien prêt pour " + dest + " (arbre « " + (a.nom || "Arbre") + " »)"));
+        const ligneLien = el("div"), champ = el("input");
+        champ.readOnly = true; champ.value = lienDe(token); champ.setAttribute("aria-label", "Lien pour " + dest);
+        champ.onfocus = () => champ.select();
+        const b = el("button", "pBtn plein", "Copier"); b.type = "button"; b.onclick = () => copier(champ.value);
+        ligneLien.append(champ, b);
+        n.appendChild(ligneLien);
+        n.hidden = false;
+        msg("");
+        rendreLiens();
       }
 
       function rendre() {
         if (user) {
           corps.innerHTML = '<p>Connecté : <b></b></p>' +
-            '<button type="button" class="action" id="cSave">Sauvegarder maintenant</button>' +
+            '<button type="button" class="action" id="cProfil">Ouvrir mon profil</button>' +
             '<button type="button" class="action clair" id="cOut">Se déconnecter</button>' +
-            '<div class="groupe"><h3>Partager en lecture seule</h3>' +
-            '<p class="doux">Crée un lien secret : toute personne qui l’a peut <b>consulter</b> l’arbre actuel (fiches, photos et notes comprises), sans pouvoir le modifier. ' +
-            'Crée <b>un lien différent pour chaque personne</b> : tu sauras qui a quel lien et pourras couper l’accès d’une seule personne. Le lien reste à jour à chaque sauvegarde.</p>' +
-            '<label for="cArbre">Arbre à partager</label><select id="cArbre"></select>' +
-            '<label for="cDest">Nom de la personne qui reçoit le lien</label><input id="cDest" maxlength="80" placeholder="ex. Marie" autocomplete="off">' +
-            '<label for="cAdr">Adresse publique de ton site</label><input id="cAdr" type="url" placeholder="https://…github.io/arbre/">' +
-            '<button type="button" class="action" id="cShare">Créer le lien</button>' +
-            '<div id="cPartages"></div></div>' +
             '<p id="cloudMsg"></p>';
           corps.querySelector("b").textContent = user.email;
-          document.getElementById("cAdr").value = adresseDefaut();
-          const selA = document.getElementById("cArbre");
-          for (const a of base.arbres) {
-            const o = document.createElement("option");
-            o.value = a.id;
-            o.textContent = (a.nom || "Arbre") + " (" + (a.personnes || []).length + " personnes)";
-            if (a.id === base.courant) o.selected = true;
-            selA.appendChild(o);
-          }
-          document.getElementById("cAdr").addEventListener("change", function () {
-            try { localStorage.setItem("adresse-site", this.value.trim().split("#")[0]); } catch (e) {}
-            rendrePartages();
-          });
-          document.getElementById("cSave").onclick = pousser;
-          document.getElementById("cShare").onclick = creerPartage;
+          document.getElementById("cProfil").onclick = function () { dlg.close(); aller("profil"); };
           document.getElementById("cOut").onclick = async function () { await sb.auth.signOut(); dlg.close(); };
-          rendrePartages();
         } else {
           corps.innerHTML = '<p class="doux">Connecte-toi pour retrouver tes arbres sur tous tes appareils.</p>' +
             '<label for="cMail">E-mail</label><input id="cMail" type="email" autocomplete="email">' +
@@ -3387,12 +3522,20 @@
         }
       }
 
-      bouton.addEventListener("click", function () { rendre(); dlg.showModal(); });
+      // Connecté : le bouton du haut ouvre la page profil ; sinon, la fenêtre de connexion
+      bouton.addEventListener("click", function () {
+        if (user) { aller("profil"); return; }
+        rendre(); dlg.showModal();
+      });
       document.getElementById("cloudFermer").addEventListener("click", function () { dlg.close(); });
 
       sb.auth.onAuthStateChange(function (evt, session) {
         user = session ? session.user : null;
-        if (!user) { dejaSynchro = null; etat("☁ Connexion"); return; }
+        if (!user) {
+          dejaSynchro = null; etat("☁ Connexion"); liensCache = []; dernierLien = null;
+          if (pageCourante === "profil") aller("accueil");
+          return;
+        }
         etat("☁ " + (user.email || "Connecté").split("@")[0]);
         if (dejaSynchro !== user.id) { dejaSynchro = user.id; setTimeout(synchroniser, 0); }
       });
