@@ -432,6 +432,47 @@
       #arbre.pedigree { height: 70vh; }
     }
     @media print { #fiche { display: none !important; } }
+
+    /* ===== Fiche en grand (façon Filae) ===== */
+    #agrandirFiche { position: absolute; top: 10px; right: 52px; z-index: 2; width: 32px; height: 32px; border: 0;
+                     border-radius: 50%; background: rgba(255, 255, 255, .22); color: #fff; font-size: 16px; cursor: pointer; }
+    #agrandirFiche:hover { background: rgba(255, 255, 255, .38); }
+    #entete { padding-right: 96px; }
+    .actionsXL { display: none; }
+    #page.ficheXL { grid-template-columns: minmax(0, 1fr); max-width: 1500px; margin: 0 auto; }
+    #page.ficheXL #arbre, #page.ficheXL #btnFiche, #page.ficheXL #fermerFiche, #page.ficheXL #agrandirFiche { display: none !important; }
+    #page.ficheXL.ficheOff #fiche { display: block; }
+    #page.ficheXL #fiche { position: static; max-height: none; overflow: hidden; }
+    #page.ficheXL #entete { padding: 28px 34px; gap: 26px; }
+    #page.ficheXL #entete .av { width: 112px; height: 112px; font-size: 40px; }
+    #page.ficheXL #entete h2 { font-size: 34px; margin-bottom: 6px; }
+    #page.ficheXL #entete p { font-size: 17px; }
+    #page.ficheXL .actionsXL { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 28px; background: #f6f1fb; }
+    .actionsXL button { font: inherit; font-weight: 700; color: var(--violet); background: none; border: 0;
+                        padding: 9px 16px; border-radius: 10px; cursor: pointer; }
+    .actionsXL button:hover { background: #ede6fa; }
+    #page.ficheXL #relations { padding: 16px 34px 0; }
+    #page.ficheXL #ficheCols { display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 30vw, 440px);
+                               gap: 30px; padding: 0 34px 18px; align-items: start; }
+    #page.ficheXL #onglets { padding: 14px 0 0; }
+    #page.ficheXL #onglets button[data-o="famille"] { display: none; }
+    #page.ficheXL #vueFiche, #page.ficheXL #vueDocs, #page.ficheXL #vueNotes, #page.ficheXL #vueModifier { padding: 18px 0 6px; }
+    #page.ficheXL #colD { padding-top: 14px; }
+    #page.ficheXL #vueFamille { background: #f6f1fb; border-radius: 14px; padding: 16px 18px 10px; }
+    #page.ficheXL #vueFamille::before { content: "Famille"; display: inline-block; font-weight: 700; color: var(--violet);
+      background: #fff; border: 1.5px solid #cfc3ea; border-radius: 8px; padding: 7px 16px; margin-bottom: 4px; }
+    #page.ficheXL .tete { display: none; }
+    #page.ficheXL #outils { padding-top: 10px; }
+    #page.ficheXL .mini { background: #fff; }
+    #page.ficheXL #msg { padding: 0 34px; }
+    #page.ficheXL #effacer { margin: 8px 34px 20px; }
+    @media (max-width: 900px) {
+      #page.ficheXL #ficheCols { grid-template-columns: 1fr; padding: 0 16px 16px; }
+      #page.ficheXL #entete { padding: 20px 18px; }
+      #page.ficheXL #relations { padding: 14px 18px 0; }
+      #page.ficheXL #entete .av { width: 72px; height: 72px; font-size: 26px; }
+      #page.ficheXL #entete h2 { font-size: 24px; }
+    }
   </style>
 </head>
 <body>
@@ -498,8 +539,14 @@
 
     <aside id="fiche">
       <button type="button" id="fermerFiche" title="Replier la fiche" aria-label="Replier la fiche">✕</button>
+      <button type="button" id="agrandirFiche" title="Afficher la fiche en grand" aria-label="Afficher la fiche en grand">⤢</button>
       <div id="entete"></div>
+      <div id="actionsXL" class="actionsXL">
+        <button type="button" data-act="arbre">🌳 Voir dans l’arbre</button>
+        <button type="button" data-act="modifier">✎ Modifier</button>
+      </div>
       <div id="relations"></div>
+      <div id="ficheCols"><div id="colG">
       <div id="onglets">
         <button type="button" data-o="fiche">Événements</button>
         <button type="button" data-o="famille">Famille</button>
@@ -508,7 +555,6 @@
         <button type="button" data-o="modifier">Modifier</button>
       </div>
       <div id="vueFiche"></div>
-      <div id="vueFamille"></div>
       <div id="vueDocs"></div>
       <div id="vueNotes"></div>
       <div id="vueModifier">
@@ -627,6 +673,9 @@
         <button class="action danger" type="button" id="supprimer" hidden>Supprimer</button>
       </form>
       </div>
+      </div>
+      <div id="colD"><div id="vueFamille"></div></div>
+      </div>
 
       <p id="msg" role="status"></p>
       <button id="effacer" type="button">Repartir de zéro</button>
@@ -695,6 +744,7 @@
     let ajout = null;      // { type, ref } quand on ajoute un proche
     let confirmer = false; // pour la double confirmation de suppression
     let onglet = "fiche";  // "fiche" (événements) ou "modifier"
+    let ficheXL = false;   // true : la fiche occupe toute la page (façon Filae)
 
     const $ = id => document.getElementById(id);
     const trouver = id => personnes.find(p => p.id === id);
@@ -1782,7 +1832,9 @@
       const a = arbreCourant();
       $("nomArbre").textContent = a.nom;
       $("majArbre").textContent = "Dernière mise à jour le " + new Date(a.maj).toLocaleDateString("fr-FR");
-      $("formats").innerHTML = FORMATS.map(f => '<button type="button" data-v="' + f[0] + '"' + (f[0] === vue ? ' class="actif"' : "") + ">" + f[1] + "</button>").join("") ;
+      const btns = FORMATS.map(f => '<button type="button" data-v="' + f[0] + '"' + (f[0] === vue && !ficheXL ? ' class="actif"' : "") + ">" + f[1] + "</button>");
+      btns.splice(2, 0, '<button type="button" data-xl="1"' + (ficheXL ? ' class="actif"' : "") + ">Fiche</button>");
+      $("formats").innerHTML = btns.join("");
     }
 
     function noeudAsc(p, g) {
@@ -2295,6 +2347,7 @@
     }
 
     function majFiche() {
+      if (ficheXL && onglet === "famille") onglet = "fiche";
       const p = choix && trouver(choix);
       const x = ajout && trouver(ajout.ref);
       const titres = {
@@ -2330,7 +2383,7 @@
       afficherDocs();
       afficherNotes();
       const vues = { fiche: "vueFiche", famille: "vueFamille", docs: "vueDocs", notes: "vueNotes" };
-      for (const o in vues) $(vues[o]).hidden = !p || onglet !== o;
+      for (const o in vues) $(vues[o]).hidden = !p || (o === "famille" ? !ficheXL && onglet !== "famille" : onglet !== o);
       $("vueModifier").hidden = !!p && onglet !== "modifier";
       $("onglets").hidden = !p;
       for (const b of document.querySelectorAll("#onglets button")) {
@@ -2349,6 +2402,7 @@
       $("militaire").open = !!(p.armee || p.unite || p.grade || p.periodeMilitaire || p.matricule);
       onglet = "fiche";
       majFiche();
+      if (ficheXL) window.scrollTo(0, 0);
     }
 
     function nouvelle(relation) {
@@ -2671,9 +2725,11 @@
     });
 
     $("formats").addEventListener("click", function (e) {
+      if (e.target.dataset.xl) { basculerXL(true); return; }
       const v = e.target.dataset.v;
       if (!v) return;
       if (v === "imprimer") { window.print(); return; }
+      if (ficheXL) basculerXL(false, true);
       vue = v;
       base.vue = v;
       sauvegarderBase();
@@ -2758,6 +2814,25 @@
     window.addEventListener("resize", recadrerVue);
     if (window.ResizeObserver) new ResizeObserver(recadrerVue).observe($("zoneArbre"));
     try { if (localStorage.getItem(CLE_FICHE) === "1") afficherFiche(false, false); } catch (e) {}
+
+    // ----- Fiche en grand (façon Filae) -----
+    function basculerXL(oui, silencieux) {
+      ficheXL = oui;
+      $("page").classList.toggle("ficheXL", oui);
+      try { localStorage.setItem("fiche-xl", oui ? "1" : "0"); } catch (e) {}
+      if (oui) { afficherFiche(true, false); if (onglet === "famille") onglet = "fiche"; }
+      if (silencieux) return;
+      if (oui && !choix && !ajout && personnes.length) ouvrir(dernier || personnes[0].id); else majFiche();
+      window.scrollTo(0, 0);
+      if (!oui) setTimeout(function () { if (carteLeaflet) carteLeaflet.invalidateSize(); }, 80);
+    }
+    $("agrandirFiche").addEventListener("click", function () { basculerXL(true); });
+    $("actionsXL").addEventListener("click", function (e) {
+      const a = e.target.dataset.act;
+      if (a === "arbre") basculerXL(false);
+      else if (a === "modifier") { onglet = "modifier"; majFiche(); }
+    });
+    try { if (localStorage.getItem("fiche-xl") === "1") { ficheXL = true; $("page").classList.add("ficheXL"); } } catch (e) {}
 
     aller("accueil");
     nouvelle(null);
