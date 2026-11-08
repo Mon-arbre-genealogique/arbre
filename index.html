@@ -338,6 +338,13 @@
     .filtresCarte select { font: inherit; font-weight: 700; color: var(--violet); background: #fff; border: 1px solid #d9d0ea;
                            border-radius: 20px; padding: 7px 14px; cursor: pointer; }
     #carteL { height: 540px; border-radius: 12px; z-index: 0; }
+    #carteL .leaflet-interactive:focus { outline: none; }
+    .btnPleinEcran { margin-left: auto; font: inherit; font-weight: 700; color: var(--violet); background: #fff; border: 1px solid #d9d0ea; border-radius: 20px; padding: 6px 14px; cursor: pointer; }
+    .btnPleinEcran:hover { background: #f6f1fb; }
+    #carteBloc.pleinEcran { position: fixed; inset: 0; z-index: 2000; background: #fff; padding: 10px; display: flex; flex-direction: column; box-sizing: border-box; }
+    #carteBloc.pleinEcran #carteL { flex: 1; height: auto; min-height: 0; }
+    #carteBloc.pleinEcran #statutCarte { margin: 6px 0 0; }
+    body.carteMax { overflow: hidden; }
     #statutCarte { margin: 8px 2px 0; }
     .legendeCarte { background: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; line-height: 1.7; box-shadow: 0 1px 6px rgba(0,0,0,.25); }
     .legendeCarte i { display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; border-radius: 3px; }
@@ -1677,7 +1684,10 @@
       const zone = $("arbre");
       afficherCadre();
       zone.classList.toggle("pedigree", vue === "arbre" && personnes.length > 0);
-      if (carteLeaflet && (vue !== "carte" || !personnes.length)) { carteLeaflet.remove(); carteLeaflet = null; }
+      if (carteLeaflet && (vue !== "carte" || !personnes.length)) {
+        if ($("carteBloc") && $("carteBloc").classList.contains("pleinEcran")) basculerPleinEcranCarte(false);
+        carteLeaflet.remove(); carteLeaflet = null;
+      }
       if (!personnes.length) {
         zone.innerHTML = '<div class="vide">Votre arbre est vide.<br>Commencez par remplir votre propre fiche, à droite.</div>';
         return;
@@ -2449,14 +2459,47 @@
           }
           geo[cleLieu(l)] = d[0] ? [+d[0].lat, +d[0].lon] : null;
           try { localStorage.setItem(CLE_GEO, JSON.stringify(geo)); } catch (e) {}
-          majMarqueurs(false);
+          majCarteDouce(false);
         } catch (e) { echec = true; break; }
         await new Promise(ok => setTimeout(ok, 1100));   // politesse envers le service de localisation
       }
       geoEnCours = false;
       if (echec) geoBloque = true;
-      if ($("carteBloc")) majMarqueurs(true);
+      // recadrage final seulement si l'utilisateur n'a pas encore bougé la carte
+      if ($("carteBloc")) majCarteDouce(!carteTouchee);
     }
+
+    // Redessin déclenché par la localisation en arrière-plan : jamais pendant qu'une bulle est ouverte
+    // (sinon le département cliqué et sa bulle disparaissent) ; on attend que la bulle soit fermée.
+    let bulleOuverte = false, redessinEnAttente = false, carteTouchee = false;
+    function majCarteDouce(recadrer) {
+      if (!carteLeaflet) return;
+      if (bulleOuverte) { redessinEnAttente = true; return; }
+      majMarqueurs(recadrer);
+    }
+
+    // Plein écran de la carte (API plein écran du navigateur, sinon la carte occupe toute la fenêtre)
+    function basculerPleinEcranCarte(oui) {
+      const bloc = $("carteBloc");
+      if (!bloc) return;
+      if (oui === undefined) oui = !bloc.classList.contains("pleinEcran");
+      bloc.classList.toggle("pleinEcran", oui);
+      document.body.classList.toggle("carteMax", oui);
+      const b = $("btnPleinEcran");
+      if (b) { b.textContent = oui ? "✕ Quitter le plein écran" : "⛶ Plein écran"; b.setAttribute("aria-pressed", String(oui)); }
+      try {
+        if (oui && bloc.requestFullscreen && !document.fullscreenElement) bloc.requestFullscreen().catch(() => {});
+        if (!oui && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      } catch (e) {}
+      setTimeout(() => { if (carteLeaflet) carteLeaflet.invalidateSize(); }, 120);
+    }
+    document.addEventListener("fullscreenchange", function () {
+      const bloc = $("carteBloc");
+      if (!document.fullscreenElement && bloc && bloc.classList.contains("pleinEcran")) basculerPleinEcranCarte(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && $("carteBloc") && $("carteBloc").classList.contains("pleinEcran")) basculerPleinEcranCarte(false);
+    });
 
     function afficherCarte(zone) {
       if ($("page").hidden) return;
@@ -2474,6 +2517,7 @@
           opt("Mariage", "Mariages", filtresCarte.type) + opt("Décès", "Décès", filtresCarte.type) + opt("Divorce", "Divorces", filtresCarte.type) + "</select>" +
         '<select data-fc="periode" aria-label="Périodes">' + opt("toutes", "Toutes les périodes", filtresCarte.periode) + opt("avant1800", "Avant 1800", filtresCarte.periode) +
           opt("p1800", "1800 - 1899", filtresCarte.periode) + opt("p1900", "1900 - 1949", filtresCarte.periode) + opt("p1950", "Depuis 1950", filtresCarte.periode) + "</select>" +
+        '<button type="button" id="btnPleinEcran" class="btnPleinEcran" aria-pressed="false">⛶ Plein écran</button>' +
         '</div><div id="carteL"></div><p id="statutCarte" class="doux"></p></div>';
       carteLeaflet = L.map("carteL").setView([46.6, 2.4], 6);
       const fondClair = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
@@ -2494,6 +2538,15 @@
       };
       lg.addTo(carteLeaflet);
       geoBloque = false;
+      bulleOuverte = false; redessinEnAttente = false; carteTouchee = false;
+      carteLeaflet.on("popupopen", function () { bulleOuverte = true; });
+      carteLeaflet.on("popupclose", function () {
+        bulleOuverte = false;
+        if (redessinEnAttente) { redessinEnAttente = false; setTimeout(() => majMarqueurs(false), 0); }
+      });
+      // seuls les gestes de l'utilisateur comptent (les zooms automatiques du programme, non)
+      for (const ev of ["pointerdown", "wheel", "touchstart"]) carteLeaflet.getContainer().addEventListener(ev, function () { carteTouchee = true; }, { passive: true });
+      $("btnPleinEcran").addEventListener("click", function () { basculerPleinEcranCarte(); });
       niveauCourant = niveauCarte();
       carteLeaflet.on("zoomend", function () {
         const n = niveauCarte();
