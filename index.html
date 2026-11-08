@@ -2622,7 +2622,9 @@
       for (const k of CHAMPS) $(k).value = p[k] || "";
       rendreUnions(p);
       $("militaire").open = !!(p.armee || p.unite || p.grade || p.periodeMilitaire || p.matricule);
-      onglet = "fiche";
+      // On reste sur l'onglet en cours (Famille, Docs, Notes…) en passant d'une personne à l'autre ;
+      // seul le formulaire « Modifier » revient aux événements.
+      if (onglet === "modifier") onglet = "fiche";
       majFiche();
       if (ficheXL) window.scrollTo(0, 0);
     }
