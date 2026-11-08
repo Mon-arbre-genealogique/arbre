@@ -3270,7 +3270,7 @@
       const adresseDefaut = () => {
         if (/^https:/.test(location.href) && !/localhost|127\.0\.0\.1/.test(location.hostname)) return location.href.split("#")[0];
         const m = adresseSite();
-        return m && !/kassandrahaas27/.test(m) ? m : ADRESSE_PUBLIQUE;
+        return m && !/\.github\.io\//.test(m) ? m : ADRESSE_PUBLIQUE;   // une ancienne adresse github.io mémorisée est ignorée
       };
 
       async function rendrePartages() {
