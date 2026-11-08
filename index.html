@@ -1,0 +1,2806 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mon arbre généalogique</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <style>
+    :root {
+      --corail: #fbd9d3; --indigo: #6c58b8; --violet: #7b66c6; --or: #f2b84b;
+      --h: #4b8fc7; --f: #d4628f; --trait: #d8cdf0;
+      --texte: #3a3350; --doux: #7a7490; --fond: #fdf6f3;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--fond); color: var(--texte);
+           font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+    #page { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 20px;
+            padding: 20px; align-items: start; }
+    @media (max-width: 900px) { #page { grid-template-columns: 1fr; padding: 12px; } }
+    :focus-visible { outline: 3px solid var(--violet); outline-offset: 2px; }
+
+    /* ----- Arbre ----- */
+    #arbre { background: #fff; border-radius: 14px; padding: 28px 12px;
+             min-height: 300px; overflow-x: auto; text-align: center; }
+    .vide { color: var(--doux); padding: 70px 20px; }
+    #arbre ul { display: flex; justify-content: center; list-style: none;
+                margin: 0; padding: 22px 0 0 0; position: relative; }
+    #arbre > ul { padding-top: 0; }
+    #arbre li { position: relative; padding: 22px 8px 0 8px; display: flex;
+                flex-direction: column; align-items: center; }
+    #arbre > ul > li { padding-top: 0; }
+    #arbre li::before, #arbre li::after { content: ""; position: absolute; top: 0;
+      right: 50%; width: 50%; height: 22px; border-top: 2px solid var(--trait); }
+    #arbre li::after { right: auto; left: 50%; border-left: 2px solid var(--trait); }
+    #arbre > ul > li::before, #arbre > ul > li::after,
+    #arbre li:only-child::before, #arbre li:only-child::after { display: none; }
+    #arbre li:only-child { padding-top: 22px; }
+    #arbre li:first-child::before, #arbre li:last-child::after { border: 0; }
+    #arbre li:last-child::before { border-right: 2px solid var(--trait); border-radius: 0 8px 0 0; }
+    #arbre li:first-child::after { border-radius: 8px 0 0 0; }
+    #arbre ul ul::before { content: ""; position: absolute; top: 0; left: 50%;
+                           height: 22px; border-left: 2px solid var(--trait); }
+
+    .couple { display: flex; align-items: flex-start; }
+    .lien { display: flex; flex-direction: column; align-items: center; min-width: 60px;
+            max-width: 100px; margin-top: 30px; font-size: 10px; line-height: 1.3;
+            color: var(--doux); text-align: center; }
+    .lien .trait { width: 100%; border-top: 2px dotted #cdbfee; position: relative; margin-bottom: 6px; }
+    .lien .trait::after { content: ""; position: absolute; left: 50%; top: -5px; width: 8px;
+                          height: 8px; border-radius: 50%; background: #8d77d4; transform: translateX(-50%); }
+    .lien .div { color: #d0556a; font-weight: 700; }
+
+    .carte { font: inherit; color: inherit; background: #fff; border: 1px solid #e8e0f4;
+             border-radius: 10px; width: 120px; padding: 10px 8px 8px; text-align: center;
+             cursor: pointer; box-shadow: 0 1px 4px rgba(40, 40, 90, .10); }
+    .carte:hover { border-color: var(--violet); }
+    .carte .pn { display: block; margin-top: 6px; font-size: 12px; line-height: 1.25; }
+    .carte .pn b { display: block; }
+    .carte small { display: block; min-height: 14px; margin-top: 2px; font-size: 11px; color: var(--doux); }
+    .carte.on { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+    .carte.on small { color: #e5dcf7; }
+    .carte.ref { border-style: dashed; opacity: .8; }
+
+    .av { display: inline-flex; align-items: center; justify-content: center; width: 48px;
+          height: 48px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 17px; }
+    .av.h { background: var(--h); }
+    .av.f { background: var(--f); }
+
+    /* ----- Fiche ----- */
+    #fiche { background: #fff; border-radius: 14px; overflow: hidden; }
+    #entete { background: var(--indigo); color: #fff; padding: 18px 20px; display: flex;
+              gap: 14px; align-items: center; }
+    #entete .av { width: 62px; height: 62px; font-size: 22px; flex: none; }
+    #entete h2 { margin: 0 0 2px; font-size: 20px; }
+    #entete p { margin: 1px 0 0; font-size: 14px; color: #e5dcf7; }
+    #relations { padding: 14px 20px 0; }
+    #relations p { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--doux); }
+    #relations small { display: block; color: var(--doux); }
+    #relations button { font: inherit; font-size: 13px; margin: 0 6px 6px 0; padding: 5px 11px;
+      background: #fff; color: var(--violet); border: 1.5px solid var(--violet);
+      border-radius: 16px; cursor: pointer; }
+    #onglets { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px 0; }
+    #onglets button { font: inherit; font-weight: 600; padding: 7px 16px; background: #fff;
+      color: var(--violet); border: 1.5px solid #cfc3ea; border-radius: 8px; cursor: pointer; }
+    #onglets button.actif { background: #ede6fa; }
+    #vueFiche, #vueFamille, #vueDocs, #vueNotes, #vueModifier { padding: 16px 20px 6px; }
+    .doux { color: var(--doux); font-size: 14px; }
+
+    .ev { display: grid; grid-template-columns: 56px 22px 1fr; gap: 0 6px; padding-bottom: 14px; }
+    .ev .an { text-align: right; font-weight: 700; }
+    .ev .an small { display: block; font-weight: 400; color: var(--doux); font-size: 12px; }
+    .ev .pt { position: relative; }
+    .ev .pt::before { content: ""; position: absolute; left: 50%; top: 4px; width: 14px; height: 14px;
+      border-radius: 50%; border: 2px solid var(--or); background: #fff; transform: translateX(-50%); }
+    .ev .pt::after { content: ""; position: absolute; left: 50%; top: 20px; bottom: -14px;
+      border-left: 2px solid var(--or); transform: translateX(-50%); }
+    .ev:last-child .pt::after { display: none; }
+    .ev.fort .pt::before { background: var(--or); }
+    .ev .corps { background: var(--fond); border-radius: 10px; padding: 8px 12px; }
+    .ev .corps b { display: block; margin-bottom: 2px; }
+    .ev .corps span { display: block; font-size: 14px; color: var(--doux); }
+    .ev a, #relations a { color: var(--violet); cursor: pointer; font-weight: 600; }
+
+    #vueModifier h2 { margin: 0 0 4px; font-size: 20px; color: var(--indigo); }
+    #aide, #msg { color: var(--doux); font-size: 14px; margin: 4px 0; }
+    #msg { padding: 0 20px; }
+    #fiche label { display: block; font-weight: 600; font-size: 13px; margin-top: 10px; }
+    #fiche input, #fiche select { width: 100%; font: inherit; font-size: 15px; padding: 7px 9px;
+      border: 1px solid #ddd5ee; border-radius: 8px; background: #fcfaff; }
+    .deux { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .groupe { border-top: 1px solid #ece6f3; margin-top: 16px; padding-top: 4px; }
+    .groupe h3, details.groupe summary { margin: 8px 0 0; font-size: 14px; color: var(--indigo); cursor: pointer; }
+    .groupe h3 { cursor: default; }
+    button.action { font: inherit; font-weight: 600; padding: 8px 16px; margin: 16px 8px 8px 0;
+      background: var(--violet); color: #fff; border: 1.5px solid var(--violet); border-radius: 8px; cursor: pointer; }
+    button.action.clair { background: #fff; color: var(--violet); }
+    button.action.danger { background: #fff; color: #d0556a; border-color: #d0556a; }
+    #effacer { font: inherit; font-size: 13px; margin: 8px 20px 18px; padding: 4px 10px;
+      background: #fff; color: #d0556a; border: 1px solid #d0556a; border-radius: 8px; cursor: pointer; }
+
+    img.av { object-fit: cover; background: #ece6f3; }
+    .badge { display: inline-block; background: rgba(255,255,255,.16); border-radius: 6px;
+             padding: 2px 8px; font-size: 12px; margin: 8px 6px 0 0; }
+    .badge a { cursor: pointer; margin-left: 4px; }
+    #etiqSel { margin-top: 8px; font: inherit; font-size: 12px; padding: 2px 6px; border-radius: 6px;
+               border: 0; background: rgba(255,255,255,.9); color: var(--indigo); }
+    #vueFamille h3 { margin: 12px 0 6px; font-size: 14px; color: var(--violet); }
+    .mini { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; font: inherit;
+            background: var(--fond); border: 0; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; cursor: pointer; }
+    .mini b { display: block; font-size: 14px; }
+    .mini small { color: var(--doux); }
+    .mini .av { width: 38px; height: 38px; font-size: 14px; flex: none; }
+    .envoi { display: inline-block; padding: 8px 14px; border: 1.5px dashed var(--violet); border-radius: 18px;
+             color: var(--violet); cursor: pointer; font-weight: 600; margin-bottom: 12px; }
+    .galerie { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .doc { background: var(--fond); border-radius: 10px; padding: 8px; font-size: 13px; }
+    .doc img, .doc .pdf { width: 100%; height: 110px; border-radius: 6px; }
+    .doc img { object-fit: cover; cursor: pointer; }
+    .doc .pdf { border: 0; background: #ede6fa; color: var(--violet); font-weight: 700; cursor: pointer; }
+    .doc span { display: block; margin: 4px 0; word-break: break-word; }
+    .outils a { margin-right: 10px; color: var(--violet); cursor: pointer; font-size: 12px; }
+    #vueNotes textarea { width: 100%; height: 90px; font: inherit; padding: 8px; border: 1px solid #ddd5ee; border-radius: 8px; }
+    .note { background: var(--fond); border-radius: 10px; padding: 8px 12px; margin-top: 10px; white-space: pre-wrap; font-size: 14px; }
+    .note small { display: block; color: var(--doux); white-space: normal; margin-bottom: 2px; }
+    .note a { cursor: pointer; color: var(--violet); }
+    .cat { display: block; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+    .doc select { font-size: 12px; padding: 3px 6px; margin-top: 2px; }
+    .vignettes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .vignettes img, .vignettes .pdf { width: 64px; height: 64px; border-radius: 6px; cursor: pointer; }
+    .vignettes img { object-fit: cover; }
+    .vignettes .pdf { border: 0; background: #ede6fa; color: var(--violet); font-weight: 700; }
+
+    /* ===== Palette joyeuse : pêche, lavande et jaune soleil ===== */
+    body { font-family: "Lato", "Segoe UI", system-ui, sans-serif; }
+    #haut { background: var(--corail); color: #fff; display: flex; align-items: center; gap: 14px;
+            padding: 0 24px; height: 56px; position: relative; z-index: 20; }
+    #haut h1 { margin: 0 14px 0 0; font-size: 23px; font-weight: 900; letter-spacing: -.3px; }
+    #haut .menu, #haut .recherche { position: relative; }
+    #haut .recherche { margin-left: auto; }
+    #haut .menu > button { font: inherit; font-weight: 700; color: #fff; background: transparent; border: 0;
+                           padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+    #haut .menu > button:hover { background: rgba(255,255,255,.18); }
+    #rech { font: inherit; font-size: 14px; width: 260px; max-width: 42vw; padding: 8px 14px; border: 0;
+            border-radius: 20px; background: #fff; color: var(--texte); }
+    #menuArbres, #resRech { position: absolute; top: 100%; left: 0; margin-top: 6px; min-width: 270px;
+      background: #fff; color: var(--texte); border-radius: 10px; padding: 6px 0;
+      box-shadow: 0 6px 24px rgba(60, 40, 110, .20); }
+    #resRech { left: auto; right: 0; }
+    #menuArbres button, #resRech button { display: block; width: 100%; text-align: left; font: inherit;
+      font-size: 15px; padding: 9px 18px; background: none; border: 0; cursor: pointer; color: var(--texte); }
+    #menuArbres button:hover, #resRech button:hover { background: #f6f1fb; }
+    #menuArbres button.cur { font-weight: 700; color: var(--violet); }
+    #menuArbres .titreMenu, #resRech p { margin: 4px 18px; font-size: 14px; font-weight: 700; color: var(--doux); }
+    #menuArbres hr { border: 0; border-top: 1px solid #ece6f3; margin: 6px 0; }
+    #resRech small { color: var(--doux); margin-left: 6px; }
+
+    #zoneArbre { background: #fff; border-radius: 16px; overflow: hidden; min-width: 0; }
+    #zoneArbre .tete { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 20px 24px 6px; }
+    #nomArbre { margin: 0; font-size: 27px; font-weight: 700; color: var(--violet); }
+    #majArbre { margin: 2px 0 0; font-size: 14px; color: var(--doux); }
+    .lien-btn { font: inherit; font-size: 14px; color: var(--violet); background: none; border: 0; cursor: pointer; text-decoration: underline; }
+    #formats { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 18px 10px; border-bottom: 1px solid #ece6f3; }
+    #formats button { font: inherit; font-size: 14px; font-weight: 700; color: var(--violet); background: none;
+                      border: 0; padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+    #formats button:hover { background: #f6f1fb; }
+    #formats button.actif { background: #ede6fa; }
+    #formats .droite { margin-left: auto; }
+    #arbre { background: transparent; border-radius: 0; padding: 18px 12px; min-height: 340px; overflow: auto; }
+
+    .carte { width: 112px; border-color: #e3daf2; border-radius: 8px; box-shadow: none; }
+    .carte:hover { border-color: var(--violet); box-shadow: 0 2px 8px rgba(123, 102, 198, .20); }
+
+    .entetevue { margin: 0 0 14px; font-weight: 700; color: var(--indigo); }
+    .asc { display: inline-block; text-align: left; }
+    .anc { display: flex; align-items: center; position: relative; }
+    .anc > .parents { display: flex; flex-direction: column; margin-left: 26px; position: relative; }
+    .anc > .parents::before { content: ""; position: absolute; left: -26px; top: 50%; width: 13px; border-top: 2px solid var(--trait); }
+    .parents > .anc { padding: 5px 0; }
+    .parents > .anc::before { content: ""; position: absolute; left: -13px; top: 50%; width: 13px; border-top: 2px solid var(--trait); }
+    .parents > .anc::after { content: ""; position: absolute; left: -13px; top: 0; bottom: 0; border-left: 2px solid var(--trait); }
+    .parents > .anc:first-child::after { top: 50%; }
+    .parents > .anc:last-child::after { bottom: 50%; }
+    .parents > .anc:only-child::after { display: none; }
+
+    .roue { display: block; width: 100%; max-width: 940px; height: auto; margin: 0 auto; }
+    .roue text { text-anchor: middle; pointer-events: none; font-family: inherit; fill: var(--texte); }
+    .roue .sl { cursor: pointer; }
+    .roue .sl:hover path { stroke: var(--violet); stroke-width: 2.5; }
+
+    table.liste { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+    table.liste th { color: var(--doux); font-weight: 700; padding: 8px 12px; border-bottom: 2px solid #ece6f3; }
+    table.liste td { padding: 9px 12px; border-bottom: 1px solid #f1ecf7; }
+    table.liste tr.sl { cursor: pointer; }
+    table.liste tr.sl:hover td { background: #f8f4fc; }
+    table.liste tr.on td { background: #ede6fa; }
+
+    #onglets button { border-color: #d6cbee; }
+    #onglets button.actif { background: #fff; border-color: var(--or); border-width: 2px; }
+    #entete { background: var(--indigo); }
+    .ev .corps { background: #f6f1fb; position: relative; }
+    .ev .corps b { padding-right: 34px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .chip { font: inherit; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 6px; border: 0; }
+    .chip.doc { background: #e5dcf7; color: var(--indigo); }
+    .chip.plus { background: #fff3d1; color: #8a6210; border: 1px dashed var(--or); cursor: pointer; }
+    .chip.plus:hover { background: #ffe8a8; }
+    .evAct { position: absolute; top: 6px; right: 8px; }
+    .crayon { font: inherit; font-size: 17px; line-height: 1; color: var(--violet); background: none; border: 0; padding: 4px 6px; cursor: pointer; border-radius: 6px; }
+    .crayon:hover { background: #e6ddf7; }
+    .menuEv { position: absolute; right: 0; top: 100%; min-width: 210px; z-index: 5; background: #fff; border-radius: 10px;
+              padding: 6px 0; box-shadow: 0 6px 22px rgba(60, 40, 110, .20); }
+    .menuEv button { display: block; width: 100%; text-align: left; font: inherit; font-size: 14px; padding: 9px 16px;
+                     background: none; border: 0; cursor: pointer; color: var(--texte); }
+    .menuEv button:hover { background: #f6f1fb; }
+
+    dialog#dlgArbres { border: 0; border-radius: 16px; padding: 0; width: min(620px, 94vw); box-shadow: 0 10px 40px rgba(60, 40, 110, .30); }
+    dialog#dlgArbres::backdrop { background: rgba(60, 40, 110, .40); }
+    .dlgTete { display: flex; justify-content: space-between; align-items: center; padding: 16px 22px; background: var(--corail); color: #fff; }
+    .dlgTete h2 { margin: 0; font-size: 20px; }
+    .dlgTete button { font: inherit; color: #fff; background: none; border: 0; font-size: 18px; cursor: pointer; }
+    .ligneArbre { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 22px; border-bottom: 1px solid #ece6f3; }
+    .ligneArbre.cur { background: #f6f1fb; }
+    .ligneArbre small { display: block; color: var(--doux); }
+    .ligneArbre .act { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+    .ligneArbre .act button { font: inherit; font-size: 13px; padding: 4px 10px; color: var(--violet); background: #fff;
+                              border: 1.5px solid var(--violet); border-radius: 14px; cursor: pointer; }
+    .ligneArbre .act button.danger { color: #d0556a; border-color: #d0556a; }
+    .dlgPied { padding: 6px 22px 14px; }
+
+    @media print {
+      #haut, #fiche, #formats, #outils, .zoomCtl, .aideDrag, .lien-btn { display: none !important; }
+      #arbre.pedigree { height: 90vh; }
+      #page { display: block; padding: 0; }
+      #zoneArbre { border-radius: 0; }
+    }
+
+    /* ===== Page d'accueil ===== */
+    #logo { font: inherit; font-weight: 900; color: #fff; background: none; border: 0; padding: 0; cursor: pointer; letter-spacing: -.3px; }
+    #haut .navBtn { font: inherit; font-weight: 700; color: #fff; background: transparent; border: 0;
+                    padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+    #haut .navBtn:hover, #haut .navBtn.actif { background: rgba(255,255,255,.18); }
+    #accueil { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 20px;
+               padding: 20px; max-width: 1240px; margin: 0 auto; align-items: start; }
+    #accueil > section { background: #fff; border-radius: 16px; padding: 18px 22px; min-width: 0; overflow: hidden; }
+    #aRecherche { grid-column: span 6; }
+    #aSugg { grid-column: span 2; background: #fdeee8 !important; }
+    #aArbre { grid-column: span 4; }
+    #aArbres, #aPhotos, #aJour { grid-column: span 2; }
+    @media (max-width: 900px) { #accueil > section { grid-column: span 6 !important; } #accueil { padding: 12px; } }
+    #accueil h2 { margin: 0 0 8px; font-size: 20px; color: var(--indigo); }
+    #accueil h3 { margin: 14px 0 8px; font-size: 15px; color: var(--indigo); }
+    #formRech { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+    #formRech input { flex: 1 1 180px; font: inherit; font-size: 15px; padding: 9px 12px; border: 1px solid #ddd5ee; border-radius: 8px; background: #fff; }
+    #formRech button.action { margin: 0; border-radius: 20px; }
+    .grilleRes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin-top: 8px; }
+    .ligneP { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; font: inherit; background: #fff;
+              border: 1px solid #ece6f3; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; }
+    .ligneP:hover { border-color: var(--violet); }
+    .ligneP b { display: block; font-size: 14px; }
+    .ligneP small { color: var(--doux); }
+    .ligneP .av { width: 38px; height: 38px; font-size: 14px; flex: none; }
+    .large { width: 100%; margin: 4px 0 0 !important; border-radius: 20px; }
+    .lienTitre { font: inherit; font-size: 24px; font-weight: 700; color: var(--violet); background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+    .carrouselBloc { display: flex; align-items: center; gap: 6px; }
+    #carrousel { display: flex; gap: 12px; overflow-x: auto; padding: 6px 4px 12px; flex: 1; scroll-behavior: smooth; }
+    #carrousel .carte { flex: none; }
+    .carrouselBloc > button { font-size: 26px; line-height: 1; color: var(--violet); background: none; border: 0; cursor: pointer; padding: 6px; }
+    .bandeau { display: flex; justify-content: space-around; gap: 12px; background: #fdeee8; padding: 16px 12px; text-align: center; margin: 14px -22px -18px; }
+    .bandeau span { display: block; font-size: 14px; font-weight: 700; color: var(--doux); }
+    .bandeau b { display: block; font-size: 28px; font-weight: 700; }
+    .bandeau div:first-child b { color: var(--violet); }
+    .entete2 { display: flex; justify-content: space-between; align-items: center; }
+    .plusBtn { font-size: 24px; line-height: 1; color: var(--violet); background: none; border: 0; cursor: pointer; padding: 0 6px; }
+    .ligneT { display: block; width: 100%; text-align: left; font: inherit; background: none; border: 0;
+              border-bottom: 1px solid #ece6f3; padding: 10px 4px; cursor: pointer; color: var(--violet); }
+    .ligneT small { display: block; color: var(--doux); }
+    .ligneT.cur b { color: var(--indigo); }
+    .ligneT:hover { background: #f8f4fc; }
+    .vignesA { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .vign { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 8px; overflow: hidden; }
+    .vign img { display: block; width: 100%; height: 84px; object-fit: cover; }
+    .jourGros { font-size: 34px; font-weight: 900; margin: 0; }
+    .jourGros small { font-size: 16px; font-weight: 400; color: var(--doux); margin-left: 6px; }
+    .evJour { display: block; width: 100%; text-align: left; font: inherit; font-size: 14px; background: #f6f1fb; border: 0;
+              border-radius: 8px; padding: 8px 10px; margin-top: 8px; cursor: pointer; }
+    .evJour small { display: block; color: var(--doux); }
+
+    /* ===== Carte ===== */
+    #carteBloc { text-align: left; }
+    .filtresCarte { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .filtresCarte select { font: inherit; font-weight: 700; color: var(--violet); background: #fff; border: 1px solid #d9d0ea;
+                           border-radius: 20px; padding: 7px 14px; cursor: pointer; }
+    #carteL { height: 540px; border-radius: 12px; z-index: 0; }
+    #statutCarte { margin: 8px 2px 0; }
+    .legendeCarte { background: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; line-height: 1.7; box-shadow: 0 1px 6px rgba(0,0,0,.25); }
+    .legendeCarte i { display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; border-radius: 3px; }
+    .pop u { display: block; margin-top: 6px; color: var(--doux); text-decoration: none; font-weight: 700; }
+    .pop a { color: var(--violet); cursor: pointer; font-weight: 700; }
+
+    /* ----- Barre d'outils et arbre déplaçable ----- */
+    #outils { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 10px; margin-bottom: 6px; border-bottom: 1px solid #ece6f3; }
+    #outils button { font: inherit; font-size: 13px; color: var(--violet); background: none; border: 0; cursor: pointer;
+                     display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 16px; border-radius: 10px; }
+    #outils button:hover { background: #f0e9fa; }
+    #outils svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    #arbre.pedigree { position: relative; overflow: hidden; padding: 0; height: calc(100vh - 300px); min-height: 480px;
+                      cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; background: #fdfaff; border-radius: 10px; }
+    #arbre.pedigree.glisse { cursor: grabbing; }
+    #monde { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    #monde svg { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+    #monde .nd { position: absolute; width: 112px; }
+    #monde .nd .carte { width: 112px; height: 138px; overflow: hidden; }
+    #monde .ph { position: absolute; width: 112px; height: 138px; font: inherit; font-size: 28px; color: var(--violet); background: #fff;
+                 border: 2px dashed #cfc3ea; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #monde .ph span { font-size: 13px; font-weight: 600; }
+    #monde .ph:hover { border-color: var(--violet); }
+    #monde .chev { position: absolute; width: 28px; height: 28px; padding: 0; font: inherit; font-size: 15px; line-height: 1; color: var(--violet);
+                   background: #fff; border: 1px solid #cfc3ea; border-radius: 50%; cursor: pointer; }
+    #monde .chev:hover { background: #f0e9fa; }
+    .zoomCtl { position: absolute; left: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 5; }
+    .zoomCtl button { width: 36px; height: 36px; font: inherit; font-size: 18px; color: var(--violet); background: #fff;
+                      border: 1px solid #ddd5ee; border-radius: 8px; cursor: pointer; }
+    .zoomCtl button:hover { background: #f0e9fa; }
+    .aideDrag { position: absolute; right: 12px; bottom: 10px; font-size: 12px; color: var(--doux); pointer-events: none; }
+    dialog#dlgOutil { border: 0; border-radius: 16px; padding: 0; width: min(920px, 96vw); box-shadow: 0 10px 40px rgba(60, 40, 110, .30); }
+    dialog#dlgOutil::backdrop { background: rgba(60, 40, 110, .40); }
+    #dlgOutilCorps { padding: 16px 22px 22px; max-height: 70vh; overflow: auto; }
+    #dlgOutilCorps input[type=search], #dlgOutilCorps input[type=text] { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid #d9d0ea; border-radius: 8px; }
+    #dlgOutilCorps .ligneP { margin-top: 6px; }
+    #dlgOutilCorps h3 { margin: 16px 0 6px; font-size: 15px; color: var(--indigo); }
+    .pick { margin-bottom: 14px; }
+    .pick label { display: block; font-weight: 700; margin-bottom: 4px; }
+    .pickSel { margin-top: 6px; padding: 8px; background: #f6f1fb; border-radius: 8px; min-height: 20px; }
+    .grosLien { font-size: 17px; margin: 6px 0 10px; padding: 12px 14px; background: #f0e9fa; border-radius: 10px; }
+    .chaine { display: flex; flex-direction: column; align-items: stretch; }
+    .chaine .etape { text-align: center; color: var(--doux); font-size: 13px; padding: 3px 0; }
+    .reglage { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #ece6f3; }
+    .reglage select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid #d9d0ea; }
+    .statsSuivi { display: flex; gap: 10px; flex-wrap: wrap; }
+    .statsSuivi div { flex: 1 1 120px; background: #f6f1fb; border-radius: 10px; padding: 10px; text-align: center; }
+    .statsSuivi b { display: block; font-size: 24px; color: var(--violet); }
+
+    /* ----- Parenté : diagramme ----- */
+    .pBadge { display: inline-block; font-size: 13px; padding: 3px 12px; border-radius: 8px; background: #ffe9ee; color: #a8456b; margin: 8px 0 4px; }
+    .pPhrase { margin: 6px 0; font-size: 16px; }
+    .pDiag { display: flex; flex-direction: column; align-items: center; margin: 18px 0 6px; }
+    .pTop { display: flex; align-items: center; justify-content: center; }
+    .pLienH { width: 28px; height: 2px; background: #d8cdf0; position: relative; }
+    .pLienH::after { content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px; border-radius: 50%; background: #a995dc; }
+    .pCol { display: flex; flex-direction: column; align-items: center; min-width: 260px; }
+    .pDeux { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; }
+    .pLien { width: 2px; height: 22px; background: #d8cdf0; }
+    .pBox { background: #fff; border: 1px solid #d9d0ea; border-radius: 10px; padding: 8px 14px; min-width: 250px; max-width: 360px; }
+    .pBox.dark { background: #6c58b8; border-color: #6c58b8; color: #fff; }
+    .pBox.dark .pAn, .pBox.dark .pLab { color: #e5dcf7; }
+    .pBox.dark .pNom, .pBox.dark .pCible { color: #fff; }
+    .pLab { display: block; font-size: 12px; color: var(--doux); margin-bottom: 2px; }
+    .pLigne { display: flex; align-items: center; gap: 8px; }
+    .pNom { font: inherit; font-weight: 600; color: var(--violet); background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+    .pNom:hover { text-decoration: underline; }
+    .pAn { font-style: italic; font-size: 13px; color: var(--doux); }
+    .pCible { margin-left: auto; font: inherit; color: var(--doux); background: none; border: 0; padding: 2px; cursor: pointer; display: grid; place-items: center; }
+    .pCible:hover { color: var(--violet); }
+    .pSp { font-style: italic; margin-top: 8px; font-size: 14px; color: var(--doux); }
+    .pSp .pNom { font-weight: 500; font-style: italic; }
+    .pDiag .etape { font-size: 13px; color: var(--doux); }
+    .pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    @media (max-width: 700px) { .pickers { grid-template-columns: 1fr; } }
+
+    /* ===== Bandeau pastel et finitions douces ===== */
+    #haut, .dlgTete { background: linear-gradient(90deg, #fbd5cf, #f9c8dc 55%, #e0d4f7); color: #4a3a78; }
+    #haut { box-shadow: 0 2px 12px rgba(150, 100, 190, .15); }
+    #haut h1, #logo, #haut .menu > button, #haut .navBtn, .dlgTete button { color: #4a3a78; }
+    #haut .menu > button:hover, #haut .navBtn:hover, #haut .navBtn.actif { background: rgba(108, 88, 184, .14); }
+    #zoneArbre, #fiche, #accueil > section { box-shadow: 0 2px 14px rgba(120, 90, 180, .08); }
+    .carte, .ligneP, .mini, .evJour, button.action, #formats button, #outils button, .chev, .zoomCtl button {
+      transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+    .carte:hover { transform: translateY(-1px); }
+    button.action:hover { background: #6c58b8; border-color: #6c58b8; }
+    button.action.clair:hover { background: #f6f1fb; }
+    :focus-visible { outline-color: #b9a8ee; }
+    #btnCloud { white-space: nowrap; }
+    dialog#dlgCloud { border: 0; border-radius: 16px; padding: 0; width: min(420px, 94vw); box-shadow: 0 10px 40px rgba(60, 40, 110, .30); }
+    dialog#dlgCloud::backdrop { background: rgba(60, 40, 110, .40); }
+    .cloudCorps { padding: 16px 22px 22px; }
+    .cloudCorps label { display: block; font-weight: 600; font-size: 13px; margin-top: 10px; }
+    .cloudCorps input { width: 100%; font: inherit; padding: 9px 11px; border: 1px solid #ddd5ee; border-radius: 8px; }
+    .cloudCorps .action { margin-bottom: 0; }
+    #cloudMsg { margin: 12px 0 0; font-size: 14px; color: var(--doux); min-height: 20px; }
+  </style>
+</head>
+<body>
+  <header id="haut">
+    <h1><button type="button" id="logo">Ma généalogie</button></h1>
+    <button type="button" id="btnAccueil" class="navBtn actif">Accueil</button>
+    <div class="menu">
+      <button type="button" id="btnArbres" aria-haspopup="true">Arbres ▾</button>
+      <div id="menuArbres" hidden></div>
+    </div>
+    <div class="recherche">
+      <input id="rech" type="search" placeholder="Rechercher une personne" autocomplete="off" aria-label="Rechercher une personne">
+      <div id="resRech" hidden></div>
+    </div>
+    <button type="button" id="btnCloud" class="navBtn">☁ Connexion</button>
+  </header>
+  <dialog id="dlgCloud">
+    <div class="dlgTete"><h2>Sauvegarde dans le cloud</h2><button type="button" id="cloudFermer" aria-label="Fermer">✕</button></div>
+    <div id="cloudCorps" class="cloudCorps"></div>
+  </dialog>
+
+  <div id="accueil">
+    <section id="aRecherche">
+      <h2>Rechercher une personne</h2>
+      <p class="doux">La recherche porte sur tous vos arbres.</p>
+      <form id="formRech" autocomplete="off">
+        <input id="rNom" placeholder="Nom" aria-label="Nom">
+        <input id="rPrenom" placeholder="Prénom(s)" aria-label="Prénom">
+        <input id="rLieu" placeholder="Commune ou département" aria-label="Lieu">
+        <button class="action" type="submit">Rechercher</button>
+      </form>
+      <div id="resultats"></div>
+    </section>
+    <section id="aSugg"></section>
+    <section id="aArbre"></section>
+    <section id="aArbres"></section>
+    <section id="aPhotos"></section>
+    <section id="aJour"></section>
+  </div>
+
+  <div id="page">
+    <main id="zoneArbre">
+      <div class="tete">
+        <div>
+          <h2 id="nomArbre"></h2>
+          <p id="majArbre"></p>
+        </div>
+        <button type="button" id="renommerArbre" class="lien-btn">Renommer</button>
+      </div>
+      <div id="outils" role="toolbar" aria-label="Outils">
+        <button type="button" data-o="recherche"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="M15 15l5 5"/><circle cx="10" cy="8" r="1.6"/><path d="M7 12.5c1-1.4 5-1.4 6 0"/></svg>Recherche</button>
+        <button type="button" data-o="suivi"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M8.5 12.5l2 2 4-4.5"/></svg>Suivi</button>
+        <button type="button" data-o="parente"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M11 8.3L7 15.7M13 8.3l4 7.4"/></svg>Parenté</button>
+        <button type="button" data-o="imprimer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3"/><rect x="7" y="14" width="10" height="7"/></svg>Imprimer</button>
+        <button type="button" data-o="listes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>Listes</button>
+        <button type="button" data-o="reglages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Réglages</button>
+      </div>
+      <div id="formats" role="toolbar" aria-label="Format d’affichage"></div>
+      <div id="arbre"></div>
+    </main>
+
+    <aside id="fiche">
+      <div id="entete"></div>
+      <div id="relations"></div>
+      <div id="onglets">
+        <button type="button" data-o="fiche">Événements</button>
+        <button type="button" data-o="famille">Famille</button>
+        <button type="button" data-o="docs">Docs</button>
+        <button type="button" data-o="notes">Notes</button>
+        <button type="button" data-o="modifier">Modifier</button>
+      </div>
+      <div id="vueFiche"></div>
+      <div id="vueFamille"></div>
+      <div id="vueDocs"></div>
+      <div id="vueNotes"></div>
+      <div id="vueModifier">
+      <h2 id="titre"></h2>
+      <p id="aide"></p>
+      <form id="formulaire" autocomplete="off">
+        <div class="deux">
+          <div>
+            <label for="prenom">Prénom</label>
+            <input id="prenom">
+          </div>
+          <div>
+            <label for="nom">Nom</label>
+            <input id="nom">
+          </div>
+        </div>
+
+        <label for="sexe">Sexe</label>
+        <select id="sexe" required>
+          <option value="">Choisir…</option>
+          <option value="H">Homme</option>
+          <option value="F">Femme</option>
+        </select>
+
+        <div class="groupe">
+          <h3>Naissance</h3>
+          <div class="deux">
+            <div>
+              <label for="naissance">Date</label>
+              <input id="naissance" placeholder="12/03/1950 ou 1950">
+            </div>
+            <div>
+              <label for="lieuNaissance">Lieu</label>
+              <input id="lieuNaissance" placeholder="Périgueux">
+            </div>
+          </div>
+        </div>
+
+        <div class="groupe">
+          <h3>Décès (laisser vide si en vie)</h3>
+          <div class="deux">
+            <div>
+              <label for="deces">Date</label>
+              <input id="deces">
+            </div>
+            <div>
+              <label for="lieuDeces">Lieu</label>
+              <input id="lieuDeces">
+            </div>
+          </div>
+        </div>
+
+        <div class="groupe">
+          <h3>Parenté</h3>
+          <label for="pere">Père</label>
+          <select id="pere"></select>
+          <label for="mere">Mère</label>
+          <select id="mere"></select>
+        </div>
+
+        <div class="groupe">
+          <h3>Mariage / union</h3>
+          <label for="conjoint">Conjoint(e)</label>
+          <select id="conjoint"></select>
+          <div class="deux">
+            <div>
+              <label for="mariage">Date du mariage</label>
+              <input id="mariage">
+            </div>
+            <div>
+              <label for="lieuMariage">Lieu</label>
+              <input id="lieuMariage">
+            </div>
+          </div>
+          <div class="deux">
+            <div>
+              <label for="divorce">Date du divorce (si divorcés)</label>
+              <input id="divorce">
+            </div>
+            <div>
+              <label for="lieuDivorce">Lieu</label>
+              <input id="lieuDivorce">
+            </div>
+          </div>
+        </div>
+
+        <details class="groupe" id="militaire">
+          <summary>Service militaire (facultatif)</summary>
+          <label for="armee">Service / conflit</label>
+          <input id="armee" placeholder="Guerre 1914-1918, service national…">
+          <div class="deux">
+            <div>
+              <label for="unite">Régiment / unité</label>
+              <input id="unite" placeholder="3e régiment d’infanterie">
+            </div>
+            <div>
+              <label for="grade">Grade</label>
+              <input id="grade" placeholder="Sergent">
+            </div>
+          </div>
+          <div class="deux">
+            <div>
+              <label for="periodeMilitaire">Période</label>
+              <input id="periodeMilitaire" placeholder="1914-1918">
+            </div>
+            <div>
+              <label for="matricule">Matricule</label>
+              <input id="matricule">
+            </div>
+          </div>
+        </details>
+
+        <button class="action" type="submit" id="ok">Ajouter</button>
+        <button class="action clair" type="button" id="annuler" hidden>Annuler</button>
+        <button class="action clair" type="button" id="nouveau" hidden>Nouvelle personne</button>
+        <button class="action danger" type="button" id="supprimer" hidden>Supprimer</button>
+      </form>
+      </div>
+
+      <p id="msg" role="status"></p>
+      <button id="effacer" type="button">Repartir de zéro</button>
+    </aside>
+  </div>
+
+  <dialog id="dlgOutil">
+    <div class="dlgTete">
+      <h2 id="dlgOutilTitre"></h2>
+      <button type="button" data-fermer="1" aria-label="Fermer">✕</button>
+    </div>
+    <div id="dlgOutilCorps"></div>
+  </dialog>
+
+  <dialog id="dlgArbres">
+    <div class="dlgTete">
+      <h2>Tous mes arbres</h2>
+      <button type="button" data-a="fermer" aria-label="Fermer">✕</button>
+    </div>
+    <div id="listeArbres"></div>
+    <div class="dlgPied">
+      <button type="button" class="action" data-a="creer">Créer un arbre</button>
+      <button type="button" class="action clair" data-a="importerGed">Importer un GEDCOM (.ged)</button>
+      <button type="button" class="action clair" data-a="importer">Importer un arbre (.json)</button>
+    </div>
+  </dialog>
+  <input type="file" id="impArbre" accept=".json,application/json" hidden>
+  <input type="file" id="impGed" accept=".ged,.gedcom,.txt" multiple hidden>
+  <input type="file" id="fichierEv" accept="image/*,application/pdf" multiple hidden>
+
+  <script>
+    // Plusieurs arbres : tout est rangé dans une seule "base" (CLE3).
+    // L'ancienne clé (un seul arbre) est reprise automatiquement au premier lancement.
+    const CLE = "arbre-genealogique-v2";
+    const CLE3 = "arbres-genealogiques-v3";
+    const CHAMPS = ["prenom", "nom", "sexe", "naissance", "lieuNaissance",
+                    "deces", "lieuDeces", "pere", "mere", "conjoint",
+                    "mariage", "lieuMariage", "divorce", "lieuDivorce",
+                    "armee", "unite", "grade", "periodeMilitaire", "matricule"];
+
+    let base = null;
+    try {
+      const s = localStorage.getItem(CLE3);
+      if (s) base = JSON.parse(s);
+    } catch (e) {}
+    if (!base || !Array.isArray(base.arbres) || !base.arbres.length) {
+      let anciens = [];
+      try {
+        const s = localStorage.getItem(CLE);
+        if (s) anciens = JSON.parse(s);
+      } catch (e) {}
+      base = { courant: "", vue: "famille",
+               arbres: [{ id: nouvelId(), nom: "Mon arbre", maj: Date.now(), personnes: anciens }] };
+    }
+    const arbreCourant = () => base.arbres.find(a => a.id === base.courant) || base.arbres[0];
+    base.courant = arbreCourant().id;
+    if (!base.reglages) base.reglages = { asc: 4, desc: 1, fratrie: true, conjoint: true };
+    if (!base.v4) { base.v4 = 1; base.vue = "arbre"; }   // la nouvelle vue "Arbre" devient la vue par défaut
+
+    let personnes = arbreCourant().personnes;  // les personnes de l'arbre ouvert
+    let vue = base.vue || "famille";           // famille, asc, desc, roue ou liste
+    let dernier = null;                        // dernière personne ouverte (centre des vues)
+    let catEv = "Naissance";                   // événement visé par l'ajout de photo
+
+    let choix = null;      // personne actuellement ouverte dans la fiche
+    let ajout = null;      // { type, ref } quand on ajoute un proche
+    let confirmer = false; // pour la double confirmation de suppression
+    let onglet = "fiche";  // "fiche" (événements) ou "modifier"
+
+    const $ = id => document.getElementById(id);
+    const trouver = id => personnes.find(p => p.id === id);
+
+    function sauvegarderBase() {
+      base.sync = Date.now();
+      let ok = false;
+      try { localStorage.setItem(CLE3, JSON.stringify(base)); ok = true; } catch (e) {}
+      if (window.cloudPlanifier) window.cloudPlanifier();
+      return ok;
+    }
+
+    function sauvegarder() {
+      const a = arbreCourant();
+      a.personnes = personnes;
+      a.maj = Date.now();
+      return sauvegarderBase();
+    }
+
+    function dire(texte) { $("msg").textContent = texte; }
+
+    function echapper(t) {
+      return String(t).replace(/[&<>"]/g, c =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    }
+
+    function nouvelId() {
+      return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+
+    function nomComplet(p) {
+      return (p.prenom + " " + (p.nom || "").toUpperCase()).trim();
+    }
+
+    const aDesParents = p => !!((p.pere && trouver(p.pere)) || (p.mere && trouver(p.mere)));
+
+    // ---------- Dessin de l'arbre ----------
+
+    const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+                  "août", "septembre", "octobre", "novembre", "décembre"];
+
+    function dateLongue(d) {
+      const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(d || "");
+      if (m && m[2] >= 1 && m[2] <= 12) return (+m[1] === 1 ? "1er" : +m[1]) + " " + MOIS[m[2] - 1] + " " + m[3];
+      return d || "";
+    }
+
+    const annee = d => ((d || "").match(/\d{4}/) || [""])[0];
+    const initiales = p => ((p.prenom || "?")[0] + ((p.nom || "")[0] || "")).toUpperCase();
+    function avatar(p) {
+      const d = p.photoId && (p.docs || []).find(x => x.id === p.photoId);
+      if (d) return '<img class="av" src="' + d.data + '" alt="">';
+      return '<span class="av ' + (p.sexe === "F" ? "f" : "h") + '">' + echapper(initiales(p)) + "</span>";
+    }
+    const lienNom = p => '<a data-id="' + p.id + '">' + echapper(nomComplet(p)) + "</a>";
+
+    function annees(p) {
+      const n = annee(p.naissance), d = annee(p.deces);
+      if (n && d) return n + " - " + d;
+      if (d) return "† " + d;
+      if (n) return (p.sexe === "F" ? "Née" : "Né") + " en " + n;
+      return "";
+    }
+
+    function texte(mot, date, lieu) {
+      if (!date && !lieu) return "";
+      return mot + (date ? (/^\d{4}$/.test(date) ? " en " : " le ") + dateLongue(date) : "") + (lieu ? " à " + lieu : "");
+    }
+
+    function carte(p, ref) {
+      return '<button type="button" class="carte' + (p.id === choix ? " on" : "") + (ref ? " ref" : "") +
+        '" data-id="' + p.id + '"' + (ref ? ' title="Cette personne apparaît aussi ailleurs dans l’arbre"' : "") + ">" +
+        avatar(p) + '<span class="pn">' + echapper(p.prenom) + "<b>" + echapper((p.nom || "").toUpperCase()) +
+        "</b></span><small>" + echapper(annees(p)) + "</small></button>";
+    }
+
+    function afficherEntete() {
+      const p = choix && trouver(choix), e = $("entete");
+      e.hidden = !p;
+      if (!p) return;
+      const f = p.sexe === "F";
+      const lignes = [texte(f ? "Née" : "Né", p.naissance, p.lieuNaissance),
+                      texte(f ? "Décédée" : "Décédé", p.deces, p.lieuDeces)].filter(Boolean);
+      const mes = p.etiquettes || [];
+      e.innerHTML = avatar(p) + "<div><h2>" + echapper(nomComplet(p)) + "</h2>" +
+        lignes.map(l => "<p>" + echapper(l) + "</p>").join("") +
+        mes.map((x, i) => '<span class="badge">' + echapper(x) + ' <a data-tag="' + i + '" title="Retirer">✕</a></span>').join("") +
+        '<br><select id="etiqSel" aria-label="Ajouter une étiquette"><option value="">+ Étiquette</option>' +
+        ETIQUETTES.filter(x => !mes.includes(x)).map(x => "<option>" + x + "</option>").join("") +
+        "</select></div>";
+    }
+
+    // Frise des événements de la vie, comme sur Filae
+    function afficherEvenements() {
+      const p = choix && trouver(choix), zone = $("vueFiche");
+      if (!p) { zone.innerHTML = ""; return; }
+      const f = p.sexe === "F";
+      const conj = p.conjoint && trouver(p.conjoint);
+      const pere = p.pere && trouver(p.pere), mere = p.mere && trouver(p.mere);
+      const ev = [];
+      const nd = c => (p.docs || []).some(d => d.categorie === c);
+      const dl = (date, lieu) => [date ? dateLongue(date) : "", lieu].filter(Boolean).join(", ");
+      const ajouter = (date, titre, lignes, fort, cat) =>
+        ev.push({ an: annee(date), titre: titre, lignes: lignes.filter(Boolean), fort: fort, cat: cat });
+
+      const parents = [pere, mere].filter(Boolean).map(lienNom).join(" et ");
+      if (p.naissance || p.lieuNaissance || nd("Naissance")) {
+        ajouter(p.naissance, "Naissance",
+          [echapper(dl(p.naissance, p.lieuNaissance)), parents ? (f ? "Fille de " : "Fils de ") + parents : ""], true, "Naissance");
+      }
+      for (const c of personnes.filter(c => c.pere === p.id || c.mere === p.id)) {
+        if (!c.naissance && !c.lieuNaissance) continue;
+        const autreId = c.pere === p.id ? c.mere : c.pere, autre = autreId && trouver(autreId);
+        ajouter(c.naissance, "Naissance d’un enfant " + lienNom(c) + (autre ? " avec " + lienNom(autre) : ""),
+          [echapper(dl(c.naissance, c.lieuNaissance))]);
+      }
+      if ((conj && (p.mariage || p.lieuMariage)) || nd("Mariage"))
+        ajouter(p.mariage, "Mariage" + (conj ? " avec " + lienNom(conj) : ""), [echapper(dl(p.mariage, p.lieuMariage))], true, "Mariage");
+      if ((conj && (p.divorce || p.lieuDivorce)) || nd("Divorce"))
+        ajouter(p.divorce, "Divorce" + (conj ? " d’avec " + lienNom(conj) : ""), [echapper(dl(p.divorce, p.lieuDivorce))], false, "Divorce");
+      if (p.armee || p.unite || p.grade || p.periodeMilitaire || p.matricule || nd("Service militaire")) {
+        ajouter(p.periodeMilitaire, "Service militaire",
+          [[p.armee, p.grade, p.unite, p.periodeMilitaire, p.matricule ? "Matricule " + p.matricule : ""]
+            .filter(Boolean).map(echapper).join(" · ")], false, "Service militaire");
+      }
+      if (p.deces || p.lieuDeces || nd("Décès"))
+        ajouter(p.deces, "Décès", [echapper(dl(p.deces, p.lieuDeces))], true, "Décès");
+      for (const [q, mot] of [[pere, "son père"], [mere, "sa mère"]]) {
+        if (q && q.deces) ajouter(q.deces, "Décès de " + mot + " " + lienNom(q), [echapper(dl(q.deces, q.lieuDeces))]);
+      }
+
+      ev.sort((a, b) => (+a.an || 9999) - (+b.an || 9999));
+      const nais = +annee(p.naissance);
+      zone.innerHTML = ev.length ? ev.map(e => {
+        const age = nais && e.an && e.an - nais > 0 ? "<small>" + (e.an - nais) + " ans</small>" : "";
+        return '<div class="ev' + (e.fort ? " fort" : "") + '"><div class="an">' + (e.an || "") + age +
+          '</div><div class="pt"></div><div class="corps"><b>' + e.titre + "</b>" +
+          e.lignes.map(l => "<span>" + l + "</span>").join("") + (e.cat ? vignettes(p, e.cat) + actionsEv(p, e.cat) : "") + "</div></div>";
+      }).join("") : '<p class="doux">Aucun événement pour l’instant. Cliquez sur « Modifier » pour compléter la fiche.</p>';
+    }
+
+    const ETIQUETTES = ["À compléter", "Hypothèse", "Impasse", "Complet", "Parents inconnus",
+      "Père inconnu", "Mère inconnue", "Enfant unique", "Célibataire", "Sans enfant",
+      "Enfant sans vie", "Favori", "Jumeaux", "Invérifiable"];
+
+    const CATEGORIES = ["Photo", "Naissance", "Mariage", "Divorce", "Décès", "Service militaire", "Autre"];
+    let catDoc = "Photo"; // catégorie choisie pour les prochains ajouts
+
+    const optionsCat = sel => CATEGORIES.map(c =>
+      "<option" + (c === sel ? " selected" : "") + ">" + c + "</option>").join("");
+
+    // Miniatures des documents rattachés à un événement de la frise
+    function vignettes(p, cat) {
+      const l = (p.docs || []).filter(d => d.categorie === cat);
+      if (!l.length) return "";
+      return '<div class="vignettes">' + l.map(d => d.type === "pdf"
+        ? '<button type="button" class="pdf" data-ouvrir="' + d.id + '">PDF</button>'
+        : '<img src="' + d.data + '" alt="' + echapper(d.nom) + '" data-ouvrir="' + d.id + '">').join("") + "</div>";
+    }
+
+    function mini(q) {
+      return '<button type="button" class="mini" data-id="' + q.id + '">' + avatar(q) +
+        "<span><b>" + echapper(nomComplet(q)) + "</b><small>" + echapper(annees(q)) + "</small></span></button>";
+    }
+
+    function afficherFamille() {
+      const p = choix && trouver(choix), z = $("vueFamille");
+      if (!p) { z.innerHTML = ""; return; }
+      const parents = [p.pere, p.mere].map(id => id && trouver(id)).filter(Boolean);
+      const fratrie = personnes.filter(c => c.id !== p.id && ((p.pere && c.pere === p.pere) || (p.mere && c.mere === p.mere)));
+      const conj = p.conjoint && trouver(p.conjoint);
+      const enfants = personnes.filter(c => c.pere === p.id || c.mere === p.id);
+      const bloc = (titre, liste) => "<h3>" + titre + "</h3>" +
+        (liste.length ? liste.map(q => mini(q)).join("") : '<p class="doux">—</p>');
+      z.innerHTML = bloc("Parents", parents) + bloc("Frères et sœurs", fratrie) +
+        bloc("Conjoint(e)", conj ? [conj] : []) + bloc("Enfants", enfants);
+    }
+
+    function afficherDocs() {
+      const p = choix && trouver(choix), z = $("vueDocs");
+      if (!p) { z.innerHTML = ""; return; }
+      const docs = p.docs || [];
+      z.innerHTML = '<label class="cat">Ce document concerne :<select id="catDoc">' + optionsCat(catDoc) + "</select></label>" +
+        '<label class="envoi">+ Ajouter une photo ou un document' +
+        '<input type="file" id="fichier" accept="image/*,application/pdf" multiple hidden></label>' +
+        (docs.length ? '<div class="galerie">' + docs.map(d =>
+          '<div class="doc">' +
+          (d.type === "pdf"
+            ? '<button type="button" class="pdf" data-ouvrir="' + d.id + '">PDF</button>'
+            : '<img src="' + d.data + '" alt="' + echapper(d.nom) + '" data-ouvrir="' + d.id + '">') +
+          "<span>" + echapper(d.nom) + (p.photoId === d.id ? " (photo de profil)" : "") + "</span>" +
+          '<select data-cat="' + d.id + '" aria-label="Rattaché à">' + optionsCat(d.categorie || "Photo") + "</select>" +
+          '<div class="outils">' + (d.type === "pdf" ? "" : '<a data-profil="' + d.id + '">Photo de profil</a>') +
+          '<a data-suppr="' + d.id + '">Supprimer</a></div></div>').join("") + "</div>"
+        : '<p class="doux">Aucune photo ni document pour l’instant. Les images sont réduites automatiquement ; les PDF sont limités à 1 Mo.</p>');
+    }
+
+    function afficherNotes() {
+      const p = choix && trouver(choix), z = $("vueNotes");
+      if (!p) { z.innerHTML = ""; return; }
+      z.innerHTML = '<textarea id="texteNote" aria-label="Nouvelle note" placeholder="Une anecdote, une source, une hypothèse…"></textarea>' +
+        '<button class="action" type="button" id="ajoutNote">Ajouter la note</button>' +
+        (p.notes || []).slice().reverse().map(n =>
+          '<div class="note"><small>' + echapper(n.date) + ' · <a data-suppr-note="' + n.id + '">Supprimer</a></small>' +
+          echapper(n.texte) + "</div>").join("");
+    }
+
+    function reduireImage(f) {
+      return new Promise((ok, ko) => {
+        const r = new FileReader();
+        r.onerror = () => ko(new Error("Lecture impossible : " + f.name));
+        r.onload = () => {
+          const img = new Image();
+          img.onerror = () => ko(new Error("Image illisible : " + f.name));
+          img.onload = () => {
+            const k = Math.min(1, 1000 / Math.max(img.width, img.height));
+            const c = document.createElement("canvas");
+            c.width = Math.round(img.width * k);
+            c.height = Math.round(img.height * k);
+            const x = c.getContext("2d");
+            x.fillStyle = "#fff";
+            x.fillRect(0, 0, c.width, c.height);
+            x.drawImage(img, 0, 0, c.width, c.height);
+            ok({ type: "image", data: c.toDataURL("image/jpeg", 0.75) });
+          };
+          img.src = r.result;
+        };
+        r.readAsDataURL(f);
+      });
+    }
+
+    function lirePdf(f) {
+      return new Promise((ok, ko) => {
+        if (f.size > 1000000) { ko(new Error("PDF trop lourd (1 Mo maximum) : " + f.name)); return; }
+        const r = new FileReader();
+        r.onerror = () => ko(new Error("Lecture impossible : " + f.name));
+        r.onload = () => ok({ type: "pdf", data: r.result });
+        r.readAsDataURL(f);
+      });
+    }
+
+    function versBlob(url) {
+      const [entete, base] = url.split(",");
+      const type = /:(.*?);/.exec(entete)[1];
+      const bin = atob(base), tab = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) tab[i] = bin.charCodeAt(i);
+      return new Blob([tab], { type: type });
+    }
+
+    // Un "noeud" = une personne (avec son conjoint) et tous ses descendants
+    function noeud(p, vus) {
+      const conj = p.conjoint && trouver(p.conjoint);
+      vus.add(p.id);
+      if (conj) vus.add(conj.id);
+
+      let html = '<div class="couple">';
+      if (conj) {
+        const [a, b] = (p.sexe === "F" && conj.sexe === "H") ? [conj, p] : [p, conj];
+        const date = p.mariage || conj.mariage;
+        const lieu = p.lieuMariage || conj.lieuMariage;
+        const div = p.divorce || conj.divorce;
+        const lieuDiv = p.lieuDivorce || conj.lieuDivorce;
+        html += carte(a) + '<span class="lien"><span class="trait"></span></span>' + carte(b);
+      } else {
+        html += carte(p);
+      }
+      html += "</div>";
+
+      const ids = conj ? [p.id, conj.id] : [p.id];
+      const enfants = personnes.filter(c => ids.includes(c.pere) || ids.includes(c.mere));
+      let sous = "";
+      for (const c of enfants) {
+        if (vus.has(c.id)) {
+          sous += '<li><div class="couple">' + carte(c, true) + "</div></li>";
+        } else {
+          sous += noeud(c, vus);
+        }
+      }
+      if (sous) html += "<ul>" + sous + "</ul>";
+
+      return "<li>" + html + "</li>";
+    }
+
+    // ---------- Arbre déplaçable (style Filae) : ascendants au-dessus, fratrie sur la ligne, enfants dessous ----------
+
+    const CW = 112, CH = 138, SW = 134, RP = 208, PADX = 40, PADT = 46, PADB = 40;
+    let vp = { x: 0, y: 0, s: 1, perso: false }, mondeInfo = null;
+    const parNaissance = l => l.slice().sort((a, b) => (+annee(a.naissance) || 9999) - (+annee(b.naissance) || 9999));
+
+    function appliquerVue() {
+      const m = $("monde");
+      if (m) m.style.transform = "translate(" + vp.x + "px," + vp.y + "px) scale(" + vp.s + ")";
+    }
+
+    function vueCentre(zone, tout) {
+      const i = mondeInfo, cw = zone.clientWidth, ch = zone.clientHeight;
+      if (!i || !cw || !ch) return;
+      if (tout) {
+        vp.s = Math.max(.2, Math.min(1, cw / i.W, ch / i.H));
+        vp.perso = true;
+        vp.x = (cw - i.W * vp.s) / 2; vp.y = (ch - i.H * vp.s) / 2;
+      } else {
+        if (!vp.perso) vp.s = Math.min(1, Math.max(.6, cw / i.W));
+        vp.x = cw / 2 - i.fx * vp.s;
+        vp.y = i.H * vp.s <= ch ? (ch - i.H * vp.s) / 2 : ch * 0.7 - i.fy * vp.s;
+      }
+      appliquerVue();
+    }
+
+    function zoomerAutour(mx, my, k) {
+      const s = Math.min(2, Math.max(.2, vp.s * k)), kk = s / vp.s;
+      vp.x = mx - (mx - vp.x) * kk; vp.y = my - (my - vp.y) * kk; vp.s = s; vp.perso = true;
+      appliquerVue();
+    }
+
+    function afficherPedigree(zone) {
+      const R = base.reglages, G = R.asc, D = R.desc, f0 = racineVue();
+      const noeuds = [], chev = [], phs = [], couples = [], fam = [];
+      let slot = 0, maxRow = G >= 1 ? 1 : 0;
+
+      // Ascendants : chaque personne est placée au milieu de ses parents
+      function lay(p, g) {
+        if (g > maxRow) maxRow = g;
+        const f = p.pere && trouver(p.pere), m = p.mere && trouver(p.mere);
+        let x;
+        if (g < G && (f || m)) {
+          const fx = f ? lay(f, g + 1) : null, mx = m ? lay(m, g + 1) : null;
+          if (f && m) {
+            x = (fx + mx) / 2;
+            couples.push({ row: g + 1, a: fx, b: mx });
+            fam.push({ x: x, row: g + 1, lien: true, xs: [x], rowK: g });
+          } else {
+            x = f ? fx : mx;
+            fam.push({ x: x, row: g + 1, lien: false, xs: [x], rowK: g });
+          }
+        } else {
+          x = slot++;
+          if (f || m) chev.push({ id: p.id, x: x, row: g });
+        }
+        noeuds.push({ p: p, x: x, row: g });
+        return x;
+      }
+
+      let M = 0;
+      if (G >= 1) {
+        const f = f0.pere && trouver(f0.pere), m = f0.mere && trouver(f0.mere);
+        let fx, mx;
+        if (f) fx = lay(f, 1); else { fx = slot++; phs.push({ x: fx, row: 1, t: "pere", pour: f0.id }); }
+        if (m) mx = lay(m, 1); else { mx = slot++; phs.push({ x: mx, row: 1, t: "mere", pour: f0.id }); }
+        M = (fx + mx) / 2;
+        couples.push({ row: 1, a: fx, b: mx });
+      }
+
+      // Ligne de la personne : fratrie (+ conjoint à côté d'elle)
+      const sibs = R.fratrie ? personnes.filter(c => c.id !== f0.id && ((f0.pere && c.pere === f0.pere) || (f0.mere && c.mere === f0.mere))) : [];
+      const conj = R.conjoint && f0.conjoint ? trouver(f0.conjoint) : null;
+      const items = [];
+      for (const q of parNaissance(sibs.concat([f0]))) {
+        items.push({ p: q, sib: true });
+        if (q === f0 && conj) items.push({ p: conj, sib: false });
+      }
+      const start = M - (items.length - 1) / 2;
+      let xf = 0, xsp = 0;
+      items.forEach((it, i) => {
+        it.x = start + i;
+        noeuds.push({ p: it.p, x: it.x, row: 0 });
+        if (it.p === f0) xf = it.x;
+        if (conj && it.p === conj) xsp = it.x;
+      });
+      if (G >= 1) fam.push({ x: M, row: 1, lien: true, xs: items.filter(it => it.sib).map(it => it.x), rowK: 0 });
+      if (conj) couples.push({ row: 0, a: xf, b: xsp });
+
+      // Descendants
+      if (D >= 1) {
+        const kids = parNaissance(personnes.filter(c => c.pere === f0.id || c.mere === f0.id || (conj && (c.pere === conj.id || c.mere === conj.id))));
+        if (kids.length) {
+          let loc = 0;
+          const nd = [], fd = [];
+          const descLay = (q, lvl) => {
+            const k = lvl < D ? parNaissance(personnes.filter(c => c.pere === q.id || c.mere === q.id)) : [];
+            let x;
+            if (k.length) {
+              const xs = k.map(c => descLay(c, lvl + 1));
+              x = (xs[0] + xs[xs.length - 1]) / 2;
+              fd.push({ x: x, row: -lvl, lien: false, xs: xs, rowK: -(lvl + 1) });
+            } else x = loc++;
+            nd.push({ p: q, x: x, row: -lvl });
+            return x;
+          };
+          const xsK = kids.map(c => descLay(c, 1));
+          const ax = conj ? (xf + xsp) / 2 : xf, dec = ax - (xsK[0] + xsK[xsK.length - 1]) / 2;
+          nd.forEach(n => { n.x += dec; noeuds.push(n); });
+          fd.forEach(f => { f.x += dec; f.xs = f.xs.map(v => v + dec); fam.push(f); });
+          fam.push({ x: ax, row: 0, lien: !!conj, xs: xsK.map(v => v + dec), rowK: -1 });
+        }
+      }
+
+      // Dimensions
+      const tous = noeuds.concat(phs);
+      const minX = Math.min.apply(null, tous.map(n => n.x)), maxX = Math.max.apply(null, tous.map(n => n.x));
+      const minRow = Math.min.apply(null, noeuds.map(n => n.row));
+      const W = PADX * 2 + CW + (maxX - minX) * SW, H = PADT + (maxRow - minRow) * RP + CH + PADB;
+      const X = x => PADX + CW / 2 + (x - minX) * SW, Y = r => PADT + (maxRow - r) * RP;
+
+      // Traits
+      let d = "", liens = "";
+      for (const f of fam) {
+        const y0 = Y(f.row) + (f.lien ? CH / 2 : CH), yk = Y(f.rowK), yb = yk - 28;
+        const lo = Math.min.apply(null, f.xs.concat([f.x])), hi = Math.max.apply(null, f.xs.concat([f.x]));
+        if (f.xs.length === 1 && Math.abs(f.xs[0] - f.x) < 1e-6) d += "M" + X(f.x) + " " + y0 + "V" + yk;
+        else {
+          d += "M" + X(f.x) + " " + y0 + "V" + yb + "M" + X(lo) + " " + yb + "H" + X(hi);
+          f.xs.forEach(v => { d += "M" + X(v) + " " + yb + "V" + yk; });
+        }
+      }
+      for (const c of couples) {
+        const y = Y(c.row) + CH / 2, xa = X(c.a) + CW / 2, xb = X(c.b) - CW / 2;
+        if (xb <= xa) continue;
+        liens += '<line x1="' + xa + '" y1="' + y + '" x2="' + xb + '" y2="' + y + '" stroke="#a995dc" stroke-width="2" stroke-dasharray="2 3"/>' +
+                 '<circle cx="' + (xa + xb) / 2 + '" cy="' + y + '" r="4" fill="#8d77d4"/>';
+      }
+
+      let html = '<div id="monde" style="width:' + W + "px;height:" + H + 'px"><svg width="' + W + '" height="' + H + '">' +
+        '<path d="' + d + '" fill="none" stroke="#d8cdf0" stroke-width="2"/>' + liens + "</svg>";
+      for (const n of noeuds) html += '<div class="nd" style="left:' + (X(n.x) - CW / 2) + "px;top:" + Y(n.row) + 'px">' + carte(n.p) + "</div>";
+      for (const h of phs) html += '<button type="button" class="ph" data-ph="' + h.t + '" data-pour="' + h.pour + '" style="left:' + (X(h.x) - CW / 2) + "px;top:" + Y(h.row) + 'px">+<span>' + (h.t === "pere" ? "Père" : "Mère") + "</span></button>";
+      for (const c of chev) html += '<button type="button" class="chev" data-chev="' + c.id + '" title="Voir ses ancêtres" aria-label="Voir ses ancêtres" style="left:' + (X(c.x) - 14) + "px;top:" + (Y(c.row) - 36) + 'px">︿</button>';
+      html += "</div>" +
+        '<div class="zoomCtl"><button type="button" data-z="+" aria-label="Zoom avant">+</button><button type="button" data-z="-" aria-label="Zoom arrière">−</button>' +
+        '<button type="button" data-z="centre" title="Recentrer sur la personne" aria-label="Recentrer">◎</button>' +
+        '<button type="button" data-z="tout" title="Voir tout l’arbre" aria-label="Tout voir">⤢</button></div>' +
+        '<div class="aideDrag">Glissez pour déplacer · molette pour zoomer</div>';
+      zone.innerHTML = html;
+      mondeInfo = { W: W, H: H, fx: X(xf), fy: Y(0) + CH / 2 };
+      vueCentre(zone, false);
+    }
+
+    // ---------- Outils : recherche, suivi, parenté, listes, réglages ----------
+
+    function ouvrirDlg(titre, html) {
+      $("dlgOutilTitre").textContent = titre;
+      $("dlgOutilCorps").innerHTML = html;
+      if (!$("dlgOutil").open) $("dlgOutil").showModal();
+    }
+
+    function resultatsRecherche(q) {
+      const mots = norm(q).split(/\s+/).filter(Boolean);
+      if (!mots.length) return '<p class="doux">Tapez un nom, un prénom ou une commune.</p>';
+      const l = personnes.filter(p => { const t = norm(nomComplet(p) + " " + (p.lieuNaissance || "")); return mots.every(m => t.includes(m)); }).slice(0, 60);
+      return l.length ? l.map(p => ligneP(p, base.courant, [annees(p), p.lieuNaissance].filter(Boolean).join(" · "))).join("") : '<p class="doux">Aucune personne trouvée.</p>';
+    }
+
+    function dlgSuivi() {
+      const inc = personnes.map(p => ({ p: p, m: manques(p) })).filter(x => x.m.length).sort((x, y) => y.m.length - x.m.length);
+      const n = f => personnes.filter(f).length;
+      ouvrirDlg("Suivi de l’arbre",
+        '<div class="statsSuivi"><div><b>' + personnes.length + "</b>personnes</div><div><b>" + n(p => !p.naissance) + "</b>sans date de naissance</div><div><b>" +
+        n(p => !p.lieuNaissance) + "</b>sans lieu de naissance</div><div><b>" + n(p => !aDesParents(p)) + "</b>sans parents</div></div>" +
+        "<h3>Fiches à compléter (" + inc.length + ")</h3>" +
+        (inc.length ? inc.slice(0, 100).map(x => ligneP(x.p, base.courant, "Manque : " + x.m.join(", "))).join("") + (inc.length > 100 ? '<p class="doux">… et ' + (inc.length - 100) + " autres.</p>" : "") : '<p class="doux">Toutes les fiches sont complètes.</p>'));
+    }
+
+    // Parenté
+    const parenteSel = { A: null, B: null };
+
+    function ancMap(p) {
+      const m = new Map([[p.id, { d: 0, via: null }]]);
+      let front = [p];
+      while (front.length) {
+        const nxt = [];
+        for (const q of front) for (const pid of [q.pere, q.mere]) {
+          const par = pid && trouver(pid);
+          if (par && !m.has(par.id)) { m.set(par.id, { d: m.get(q.id).d + 1, via: q.id }); nxt.push(par); }
+        }
+        front = nxt;
+      }
+      return m;
+    }
+
+    function libelleLien(X, dX, dY, nbCommuns, cote) {
+      const g = (h, f) => X.sexe === "H" ? h : X.sexe === "F" ? f : h + " / " + f;
+      const sfx = (txt) => cote ? txt + " " + (cote === "p" ? "pater" : "mater") + (X.sexe === "F" ? "nelle" : "nel") : txt;
+      if (dX === 0) {
+        if (dY === 1) return g("un père", "une mère");
+        if (dY === 2) return sfx(g("un grand-père", "une grand-mère"));
+        if (dY === 3) return sfx(g("un arrière-grand-père", "une arrière-grand-mère"));
+        if (dY === 4) return sfx(g("un trisaïeul", "une trisaïeule"));
+        if (dY === 5) return sfx(g("un quadrisaïeul", "une quadrisaïeule"));
+        return sfx(g("un ancêtre direct", "une ancêtre directe")) + " (" + dY + " générations)";
+      }
+      if (dY === 0) {
+        if (dX === 1) return g("un fils", "une fille");
+        if (dX === 2) return g("un petit-fils", "une petite-fille");
+        if (dX === 3) return g("un arrière-petit-fils", "une arrière-petite-fille");
+        return g("un descendant direct", "une descendante directe") + " (" + dX + " générations)";
+      }
+      if (dX === 1 && dY === 1) return nbCommuns >= 2 ? g("un frère", "une sœur") : g("un demi-frère", "une demi-sœur");
+      if (dX === 1) {
+        if (dY === 2) return sfx(g("un oncle", "une tante"));
+        if (dY === 3) return sfx(g("un grand-oncle", "une grand-tante"));
+        if (dY === 4) return sfx(g("un arrière-grand-oncle", "une arrière-grand-tante"));
+        return g("un oncle éloigné", "une tante éloignée") + " (" + dY + " générations)";
+      }
+      if (dY === 1) {
+        if (dX === 2) return g("un neveu", "une nièce");
+        if (dX === 3) return g("un petit-neveu", "une petite-nièce");
+        if (dX === 4) return g("un arrière-petit-neveu", "une arrière-petite-nièce");
+        return g("un neveu éloigné", "une nièce éloignée") + " (" + dX + " générations)";
+      }
+      const n = Math.min(dX, dY), k = Math.abs(dX - dY);
+      let t = n === 2 ? g("un cousin germain", "une cousine germaine") : n === 3 ? g("un cousin issu de germain", "une cousine issue de germain")
+        : g("un cousin éloigné", "une cousine éloignée") + " (ancêtre commun à " + n + " générations)";
+      if (k) t += ", avec un décalage de " + k + " génération" + (k > 1 ? "s" : "") + (dX > dY ? " (plus jeune)" : " (plus âgé(e))");
+      return t;
+    }
+
+    // Rôle d'une personne située d générations au-dessus de la personne "bout de branche"
+    function roleAsc(d, sexe) {
+      const T = [null, ["Père", "Mère"], ["Grand-père", "Grand-mère"], ["Arrière-grand-père", "Arrière-grand-mère"], ["Trisaïeul", "Trisaïeule"], ["Quadrisaïeul", "Quadrisaïeule"]];
+      const t = T[d];
+      if (!t) return "Ancêtre (" + d + " générations)";
+      return sexe === "H" ? t[0] : sexe === "F" ? t[1] : t[0] + " / " + t[1];
+    }
+
+    // côté (paternel / maternel) : par quel parent de Y passe le chemin vers l'ancêtre
+    function coteDe(Y, ancId, mY) {
+      let c = ancId, prev = null;
+      while (c && c !== Y.id) { prev = c; c = mY.get(c).via; }
+      return prev && Y.pere === prev ? "p" : prev && Y.mere === prev ? "m" : null;
+    }
+
+    const IC_CIBLE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>';
+    const carteP = (q, dark, label) => '<div class="pBox' + (dark ? " dark" : "") + '">' + (label ? '<span class="pLab">' + echapper(label) + "</span>" : "") +
+      '<div class="pLigne"><button type="button" class="pNom" data-cible="' + q.id + '">' + echapper(nomComplet(q)) + '</button><span class="pAn">' + echapper(annees(q)) +
+      '</span><button type="button" class="pCible" data-cible="' + q.id + '" title="Voir dans l’arbre" aria-label="Voir dans l’arbre">' + IC_CIBLE + "</button></div></div>";
+    const sousConjoint = q => q ? '<div class="pSp">&amp; <button type="button" class="pNom" data-cible="' + q.id + '">' + echapper(nomComplet(q)) + "</button> <span class=\"pAn\">" + echapper(annees(q)) + "</span></div>" : "";
+    const autreParent = (enfant, parent) => { const id = enfant.pere === parent.id ? enfant.mere : enfant.pere; return id ? trouver(id) : null; };
+
+    function diagrammeLien(top, topLab, colA, colB, A, B, dA, dB) {
+      // colX = liste des personnes sous l'ancêtre, de l'ancêtre vers la personne
+      const colonne = (liste, dEnd, parent) => {
+        let h = "";
+        liste.forEach((q, i) => {
+          const dist = dEnd - 1 - i, fin = i === liste.length - 1;
+          h += '<div class="pLien"></div>' + carteP(q, fin, fin ? "" : roleAsc(dist, q.sexe));
+          if (!fin) h += sousConjoint(autreParent(liste[i + 1], q));
+        });
+        return h;
+      };
+      const premier = (colA[0] || colB[0]);
+      const sp = premier ? autreParent(premier, top) : (top.conjoint ? trouver(top.conjoint) : null);
+      let h = '<div class="pDiag"><div class="pTop">' + carteP(top, top.id === A.id || top.id === B.id, topLab) +
+        (sp ? '<span class="pLienH"></span>' + carteP(sp, false, "") : "") + "</div>";
+      if (colA.length && colB.length) {
+        h += '<div class="pDeux"><div class="pCol">' + colonne(colA, dA) + '</div><div class="pCol">' + colonne(colB, dB) + "</div></div>";
+      } else {
+        const c = colA.length ? colA : colB, d = colA.length ? dA : dB;
+        h += '<div class="pCol">' + colonne(c, d) + "</div>";
+      }
+      return h + "</div>";
+    }
+
+    function trouverLien(A, B) {
+      const nA = "<b>" + echapper(nomComplet(A)) + "</b>", nB = "<b>" + echapper(nomComplet(B)) + "</b>";
+      if (A.id === B.id) return { badge: "", phrases: ["C’est la même personne."], diag: "" };
+      if (A.conjoint === B.id) return { badge: "Conjoints", phrases: [nA + " et " + nB + " sont conjoints."], diag: '<div class="pDiag"><div class="pTop">' + carteP(A, true, "") + '<span class="pLienH"></span>' + carteP(B, true, "") + "</div></div>" };
+      const ma = ancMap(A), mb = ancMap(B);
+      let best = null, communs = [];
+      ma.forEach((v, id) => {
+        if (!mb.has(id)) return;
+        const tot = v.d + mb.get(id).d;
+        if (!best || tot < best.tot) { best = { tot: tot, id: id }; communs = [id]; }
+        else if (tot === best.tot && v.d === ma.get(best.id).d) communs.push(id);
+      });
+      if (best) {
+        const dA = ma.get(best.id).d, dB = mb.get(best.id).d, top = trouver(best.id);
+        const cA = dA === 0 && dB >= 2 || (dA === 1 && dB >= 2) ? coteDe(B, best.id, mb) : null;
+        const cB = dB === 0 && dA >= 2 || (dB === 1 && dA >= 2) ? coteDe(A, best.id, ma) : null;
+        const phrases = [nA + " est " + libelleLien(A, dA, dB, communs.length, cA) + " de " + nB + ".",
+                         nB + " est " + libelleLien(B, dB, dA, communs.length, cB) + " de " + nA + "."];
+        const montee = []; for (let c = best.id; c; c = ma.get(c).via) montee.push(trouver(c));
+        const desc = []; for (let c = best.id; c; c = mb.get(c).via) desc.push(trouver(c));
+        const direct = dA === 0 || dB === 0;
+        return { badge: direct ? "Lien direct" : "Lien collatéral", phrases: phrases,
+                 diag: diagrammeLien(top, direct ? "" : "Ancêtre commun", montee.slice(1), desc.slice(1), A, B, dA, dB) };
+      }
+      // Pas de lien de sang : recherche d'un lien par alliance
+      const adj = new Map(personnes.map(q => [q.id, []]));
+      const lie = (a, b, ab, ba) => { if (adj.has(a) && adj.has(b)) { adj.get(a).push([b, ab]); adj.get(b).push([a, ba]); } };
+      for (const q of personnes) {
+        if (q.pere) lie(q.id, q.pere, "est enfant de", "est parent de");
+        if (q.mere) lie(q.id, q.mere, "est enfant de", "est parent de");
+        if (q.conjoint && q.id < q.conjoint) lie(q.id, q.conjoint, "est conjoint(e) de", "est conjoint(e) de");
+      }
+      const prec = new Map([[A.id, null]]);
+      let front = [A.id];
+      while (front.length && !prec.has(B.id)) {
+        const nxt = [];
+        for (const id of front) for (const [v, lab] of adj.get(id)) if (!prec.has(v)) { prec.set(v, [id, lab]); nxt.push(v); }
+        front = nxt;
+      }
+      if (!prec.has(B.id)) return { badge: "", phrases: ["Aucun lien trouvé entre ces deux personnes dans cet arbre."], diag: "" };
+      const chemin = [];
+      for (let c = B.id; c; ) { const pr = prec.get(c); chemin.push([trouver(c), pr ? pr[1] : ""]); c = pr ? pr[0] : null; }
+      chemin.reverse();
+      const diag = '<div class="pDiag"><div class="pCol">' + chemin.map((x, i) => (i ? '<div class="pLien"></div><div class="etape">' + x[1] + '</div><div class="pLien"></div>' : "") +
+        carteP(x[0], i === 0 || i === chemin.length - 1, "")).join("") + "</div></div>";
+      return { badge: "Lien par alliance", phrases: [nA + " et " + nB + " sont liés par alliance (" + (chemin.length - 1) + " étape(s))."], diag: diag };
+    }
+
+    function majParente() {
+      const A = parenteSel.A && trouver(parenteSel.A), B = parenteSel.B && trouver(parenteSel.B);
+      ["A", "B"].forEach(k => { const q = parenteSel[k] && trouver(parenteSel[k]); const z = $("dlgOutilCorps").querySelector('[data-sel="' + k + '"]'); if (z) z.innerHTML = q ? mini(q) : '<span class="doux">Aucune personne choisie</span>'; });
+      const z = $("parRes");
+      if (!z) return;
+      if (!A || !B) { z.innerHTML = '<p class="doux">Choisissez deux personnes pour voir leur lien de parenté.</p>'; return; }
+      const r = trouverLien(A, B);
+      z.innerHTML = (r.badge ? '<span class="pBadge">' + r.badge + "</span>" : "") + r.phrases.map(t => '<p class="pPhrase">' + t + "</p>").join("") + r.diag;
+    }
+
+    function dlgParente() {
+      const r = racineVue();
+      parenteSel.A = r ? r.id : null; parenteSel.B = null;
+      const bloc = (k, t) => '<div class="pick"><label>' + t + '</label><input type="search" data-q="' + k + '" placeholder="Rechercher un nom…" autocomplete="off">' +
+        '<div data-res="' + k + '"></div><div class="pickSel" data-sel="' + k + '"></div></div>';
+      ouvrirDlg("Lien de parenté", '<div class="pickers">' + bloc("A", "Première personne") + bloc("B", "Seconde personne") + '</div><div id="parRes"></div>');
+      majParente();
+    }
+
+    function dlgReglages() {
+      const R = base.reglages;
+      const sel = (id, vals, cur) => '<select id="' + id + '">' + vals.map(v => '<option value="' + v + '"' + (v === cur ? " selected" : "") + ">" + v + "</option>").join("") + "</select>";
+      ouvrirDlg("Réglages de l’arbre",
+        '<div class="reglage"><label for="rgAsc">Générations d’ascendants</label>' + sel("rgAsc", [1, 2, 3, 4, 5, 6], R.asc) + "</div>" +
+        '<div class="reglage"><label for="rgDesc">Générations de descendants</label>' + sel("rgDesc", [0, 1, 2], R.desc) + "</div>" +
+        '<div class="reglage"><label for="rgFr">Afficher les frères et sœurs</label><input type="checkbox" id="rgFr"' + (R.fratrie ? " checked" : "") + "></div>" +
+        '<div class="reglage"><label for="rgCj">Afficher le conjoint</label><input type="checkbox" id="rgCj"' + (R.conjoint ? " checked" : "") + "></div>" +
+        '<p class="doux">Plus il y a de générations, plus l’arbre est large : déplacez-le à la souris et zoomez avec la molette.</p>');
+    }
+
+    function actionOutil(o) {
+      if (o === "recherche") {
+        ouvrirDlg("Rechercher une personne", '<input type="search" id="qDlg" placeholder="Nom, prénom ou commune…" autocomplete="off"><div id="resDlg">' + resultatsRecherche("") + "</div>");
+        $("qDlg").focus();
+      } else if (o === "suivi") dlgSuivi();
+      else if (o === "parente") dlgParente();
+      else if (o === "imprimer") window.print();
+      else if (o === "listes") { vue = "liste"; base.vue = "liste"; sauvegarderBase(); afficherArbre(); }
+      else if (o === "reglages") dlgReglages();
+    }
+
+    $("outils").addEventListener("click", function (e) {
+      const b = e.target.closest("[data-o]");
+      if (b) actionOutil(b.dataset.o);
+    });
+
+    $("dlgOutil").addEventListener("click", function (e) {
+      if (e.target === this || e.target.closest("[data-fermer]")) { this.close(); return; }
+      const lp = e.target.closest(".ligneP[data-open]");
+      if (lp) { ouvrir(lp.dataset.open); dire(""); this.close(); return; }
+      const ci = e.target.closest("[data-cible]");
+      if (ci) { ouvrir(ci.dataset.cible); dire(""); this.close(); return; }
+      const mn = e.target.closest(".mini[data-id]:not([data-pick])");
+      if (mn) { ouvrir(mn.dataset.id); dire(""); this.close(); return; }
+      const pk = e.target.closest("[data-pick]");
+      if (pk) {
+        parenteSel[pk.dataset.pick] = pk.dataset.id;
+        const inp = this.querySelector('[data-q="' + pk.dataset.pick + '"]'), res = this.querySelector('[data-res="' + pk.dataset.pick + '"]');
+        if (inp) inp.value = ""; if (res) res.innerHTML = "";
+        majParente();
+      }
+    });
+
+    $("dlgOutil").addEventListener("input", function (e) {
+      if (e.target.id === "qDlg") { $("resDlg").innerHTML = resultatsRecherche(e.target.value); return; }
+      const k = e.target.dataset.q;
+      if (!k) return;
+      const mots = norm(e.target.value).split(/\s+/).filter(Boolean), z = this.querySelector('[data-res="' + k + '"]');
+      if (!mots.length) { z.innerHTML = ""; return; }
+      const l = personnes.filter(p => { const t = norm(nomComplet(p)); return mots.every(m => t.includes(m)); }).slice(0, 8);
+      z.innerHTML = l.length ? l.map(p => '<button type="button" class="mini" data-pick="' + k + '" data-id="' + p.id + '">' + avatar(p) +
+        "<span><b>" + echapper(nomComplet(p)) + "</b><small>" + echapper([annees(p), p.lieuNaissance].filter(Boolean).join(" · ")) + "</small></span></button>").join("") : '<p class="doux">Aucun résultat.</p>';
+    });
+
+    $("dlgOutil").addEventListener("change", function (e) {
+      const R = base.reglages;
+      if (e.target.id === "rgAsc") R.asc = +e.target.value;
+      else if (e.target.id === "rgDesc") R.desc = +e.target.value;
+      else if (e.target.id === "rgFr") R.fratrie = e.target.checked;
+      else if (e.target.id === "rgCj") R.conjoint = e.target.checked;
+      else return;
+      sauvegarderBase();
+      afficherArbre();
+    });
+
+    // Déplacer l'arbre à la souris / au doigt, zoomer à la molette
+    let glisse = null, aBouge = false;
+    $("arbre").addEventListener("pointerdown", function (e) {
+      if (!this.classList.contains("pedigree") || e.button > 0 || e.target.closest("[data-z]")) return;
+      glisse = { x: e.clientX, y: e.clientY, vx: vp.x, vy: vp.y };
+      aBouge = false;
+    });
+    window.addEventListener("pointermove", function (e) {
+      if (!glisse) return;
+      const dx = e.clientX - glisse.x, dy = e.clientY - glisse.y;
+      if (!aBouge && Math.hypot(dx, dy) < 5) return;
+      aBouge = true;
+      vp.x = glisse.vx + dx; vp.y = glisse.vy + dy;
+      $("arbre").classList.add("glisse");
+      appliquerVue();
+    });
+    const finGlisse = () => { glisse = null; $("arbre").classList.remove("glisse"); };
+    window.addEventListener("pointerup", finGlisse);
+    window.addEventListener("pointercancel", finGlisse);
+    $("arbre").addEventListener("click", function (e) {
+      if (aBouge) { e.stopImmediatePropagation(); e.preventDefault(); aBouge = false; }
+    }, true);
+    $("arbre").addEventListener("wheel", function (e) {
+      if (!this.classList.contains("pedigree")) return;
+      e.preventDefault();
+      const r = this.getBoundingClientRect();
+      zoomerAutour(e.clientX - r.left, e.clientY - r.top, Math.pow(1.0015, -e.deltaY));
+    }, { passive: false });
+
+    // Vue "Famille" : seulement la famille de la personne ouverte (parents, fratrie, conjoint, enfants)
+    function familleFocus(p) {
+      const trie = l => l.slice().sort((x, y) => (+annee(x.naissance) || 9999) - (+annee(y.naissance) || 9999));
+      const li = q => "<li><div class=\"couple\">" + carte(q) + "</div></li>";
+      const pere = p.pere && trouver(p.pere), mere = p.mere && trouver(p.mere);
+      let html = "";
+      if (pere || mere) {
+        const fratrie = trie(personnes.filter(c => (pere && c.pere === pere.id) || (mere && c.mere === mere.id)));
+        const couple = pere && mere ? carte(pere) + '<span class="lien"><span class="trait"></span></span>' + carte(mere) : carte(pere || mere);
+        html += '<div class="entetevue">Parents et fratrie</div><ul><li><div class="couple">' + couple + "</div><ul>" +
+          fratrie.map(li).join("") + "</ul></li></ul>";
+      }
+      const conj = p.conjoint && trouver(p.conjoint);
+      const ids = conj ? [p.id, conj.id] : [p.id];
+      const enfants = trie(personnes.filter(c => ids.includes(c.pere) || ids.includes(c.mere)));
+      if (conj || enfants.length) {
+        const [a, b] = conj && p.sexe === "F" && conj.sexe === "H" ? [conj, p] : [p, conj];
+        const couple = conj ? carte(a) + '<span class="lien"><span class="trait"></span></span>' + carte(b) : carte(p);
+        html += '<div class="entetevue">' + (conj ? "Conjoint(e) et enfants" : "Enfants") + "</div><ul><li><div class=\"couple\">" + couple + "</div>" +
+          (enfants.length ? "<ul>" + enfants.map(li).join("") + "</ul>" : "") + "</li></ul>";
+      }
+      return html || '<div class="vide">Aucun proche renseigné pour cette personne.</div>';
+    }
+
+    function afficherArbre() {
+      const zone = $("arbre");
+      afficherCadre();
+      zone.classList.toggle("pedigree", vue === "arbre" && personnes.length > 0);
+      if (carteLeaflet && (vue !== "carte" || !personnes.length)) { carteLeaflet.remove(); carteLeaflet = null; }
+      if (!personnes.length) {
+        zone.innerHTML = '<div class="vide">Votre arbre est vide.<br>Commencez par remplir votre propre fiche, à droite.</div>';
+        return;
+      }
+      if (vue === "carte") { afficherCarte(zone); return; }
+      if (vue === "arbre") { afficherPedigree(zone); return; }
+      if (vue !== "famille") { zone.innerHTML = vueAlternative(); return; }
+      const focus = racineVue();
+      if (focus) { zone.innerHTML = familleFocus(focus); return; }
+      const vus = new Set();
+      let html = "";
+
+      // Les racines : personnes sans parent connu (et dont le conjoint n'a pas de parents affichés)
+      const racines = personnes.filter(p => {
+        const c = p.conjoint && trouver(p.conjoint);
+        return !aDesParents(p) && !(c && aDesParents(c));
+      });
+      for (const r of racines) {
+        if (!vus.has(r.id)) html += noeud(r, vus);
+      }
+      for (const p of personnes) {
+        if (!vus.has(p.id)) html += noeud(p, vus);
+      }
+      zone.innerHTML = "<ul>" + html + "</ul>";
+    }
+
+    // ---------- Photos et documents rattachés à un événement ----------
+
+    function actionsEv(p, cat) {
+      const n = (p.docs || []).filter(d => d.categorie === cat).length;
+      return '<div class="chips">' +
+        (n ? '<span class="chip doc">' + n + " document" + (n > 1 ? "s" : "") + "</span>" : "") +
+        '<button type="button" class="chip plus" data-photoev="' + cat + '" title="Ajouter une photo ou un fichier à cet événement">+ Photo</button></div>' +
+        '<div class="evAct"><button type="button" class="crayon" data-menuev="1" aria-label="Actions sur l’événement" title="Actions">✎</button>' +
+        '<div class="menuEv" hidden><button type="button" data-modif="1">Modifier l’événement</button>' +
+        '<button type="button" data-photoev="' + cat + '">Photos ou fichiers</button></div></div>';
+    }
+
+    function fermerMenus() {
+      document.querySelectorAll(".menuEv").forEach(m => { m.hidden = true; });
+    }
+
+    async function ajouterFichiers(p, fichiers, cat) {
+      const avant = (p.docs || []).slice();
+      let erreur = "";
+      for (const f of fichiers) {
+        try {
+          const d = f.type === "application/pdf" ? await lirePdf(f) : await reduireImage(f);
+          p.docs = (p.docs || []).concat([{ id: nouvelId(), nom: f.name.replace(/\.[^.]+$/, ""), type: d.type, data: d.data, categorie: cat }]);
+        } catch (err) {
+          erreur = err.message;
+        }
+      }
+      p.maj = Date.now();
+      if (!sauvegarder()) {
+        p.docs = avant;
+        erreur = "Espace de stockage du navigateur plein : fichiers non ajoutés.";
+      }
+      majFiche();
+      dire(erreur || (fichiers.length > 1 ? "Fichiers ajoutés." : "Fichier ajouté."));
+    }
+
+    // ---------- Plusieurs arbres ----------
+
+    function changerArbre(id) {
+      base.courant = id;
+      personnes = arbreCourant().personnes;
+      choix = null; ajout = null; dernier = null;
+      sauvegarderBase();
+      if (personnes.length) ouvrir(personnes[0].id); else nouvelle(null);
+      dire("");
+    }
+
+    function creerArbre() {
+      const nom = prompt("Nom du nouvel arbre :", "Arbre de ");
+      if (!nom || !nom.trim()) return;
+      const a = { id: nouvelId(), nom: nom.trim(), maj: Date.now(), personnes: [] };
+      base.arbres.push(a);
+      changerArbre(a.id);
+      aller("arbre", { formulaire: true });
+    }
+
+    function renommerArbre(id) {
+      const a = base.arbres.find(x => x.id === id);
+      if (!a) return;
+      const nom = prompt("Nouveau nom de l’arbre :", a.nom);
+      if (nom && nom.trim()) {
+        a.nom = nom.trim();
+        sauvegarderBase();
+        afficherCadre();
+        if ($("dlgArbres").open) listeArbres();
+      }
+    }
+
+    function supprimerArbre(id) {
+      const a = base.arbres.find(x => x.id === id);
+      if (!a) return;
+      if (base.arbres.length < 2) { alert("Il faut garder au moins un arbre."); return; }
+      if (!confirm("Supprimer définitivement « " + a.nom + " » et ses " + a.personnes.length + " personne(s) ?")) return;
+      base.arbres = base.arbres.filter(x => x.id !== id);
+      if (base.courant === id) changerArbre(base.arbres[0].id); else sauvegarderBase();
+      listeArbres();
+    }
+
+    function exporterArbre(id) {
+      const a = base.arbres.find(x => x.id === id);
+      if (!a) return;
+      const blob = new Blob([JSON.stringify({ nom: a.nom, personnes: a.personnes })], { type: "application/json" });
+      const lien = document.createElement("a");
+      lien.href = URL.createObjectURL(blob);
+      lien.download = a.nom.replace(/[\\/:*?"<>|]+/g, "") + ".json";
+      lien.click();
+      setTimeout(() => URL.revokeObjectURL(lien.href), 1000);
+    }
+
+    function importerArbre(fichier) {
+      const r = new FileReader();
+      r.onload = function () {
+        try {
+          const d = JSON.parse(r.result);
+          if (!Array.isArray(d.personnes)) throw new Error("format");
+          const a = { id: nouvelId(), nom: (d.nom || "Arbre importé") + " (import)", maj: Date.now(), personnes: d.personnes };
+          base.arbres.push(a);
+          changerArbre(a.id);
+          aller("arbre");
+          dire("Arbre importé : " + a.nom);
+        } catch (e) {
+          alert("Fichier non reconnu : choisissez un arbre exporté depuis ce site (.json).");
+        }
+      };
+      r.readAsText(fichier);
+    }
+
+
+    // ---------- Import GEDCOM (.ged) ----------
+
+    const MOIS_GED = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+
+    function dateGedcom(d) {
+      d = (d || "").trim();
+      if (!d) return "";
+      const un = x => {
+        const m = /^(?:(\d{1,2})\s+)?(?:([a-z]{3})\s+)?(\d{3,4})$/i.exec(x.trim());
+        if (!m) return x.trim();
+        const mois = m[2] ? MOIS_GED[m[2].toLowerCase()] : 0;
+        if (m[2] && !mois) return x.trim();
+        const dd = m[1] ? ("0" + m[1]).slice(-2) + "/" : "";
+        return (mois ? dd + ("0" + mois).slice(-2) + "/" : "") + m[3];
+      };
+      let m;
+      if ((m = /^(?:bet|between)\s+(.+?)\s+and\s+(.+)$/i.exec(d))) return "entre " + un(m[1]) + " et " + un(m[2]);
+      if ((m = /^from\s+(.+?)\s+to\s+(.+)$/i.exec(d))) return "de " + un(m[1]) + " à " + un(m[2]);
+      if ((m = /^(abt|about|est|cal|ca)\s+(.+)$/i.exec(d))) return "vers " + un(m[2]);
+      if ((m = /^(bef|before)\s+(.+)$/i.exec(d))) return "avant " + un(m[2]);
+      if ((m = /^(aft|after)\s+(.+)$/i.exec(d))) return "après " + un(m[2]);
+      return un(d);
+    }
+
+    function majusculesNom(t) {
+      t = (t || "").trim();
+      if (t !== t.toLowerCase() && t !== t.toUpperCase()) return t;   // déjà bien écrit
+      return t.toLowerCase().replace(/(^|[\s\-'’])(\p{L})/gu, (x, a, b) => a + b.toUpperCase());
+    }
+
+    function lireGedcom(texte) {
+      // 1) lecture ligne à ligne -> enregistrements { tag, val, xref, sous: [...] }
+      const racine = { sous: [] }, pile = [racine];
+      for (const brut of texte.replace(/^\uFEFF/, "").split(/\r\n|\r|\n/)) {
+        const m = /^\s*(\d+)\s+(?:(@[^@]+@)\s+)?(\S+)(?:\s(.*))?$/.exec(brut);
+        if (!m) continue;
+        const niv = +m[1], tag = m[3].toUpperCase(), val = m[4] || "";
+        if (tag === "CONC" || tag === "CONT") {
+          const parent = pile[niv] || pile[pile.length - 1];
+          if (parent && parent.tag) parent.val += (tag === "CONT" ? "\n" : "") + val;
+          continue;
+        }
+        const n = { tag: tag, val: val, xref: m[2] || "", sous: [] };
+        (pile[niv] || racine).sous.push(n);
+        pile[niv + 1] = n;
+        pile.length = niv + 2;
+      }
+      const fils = (n, t) => n.sous.filter(x => x.tag === t);
+      const un = (n, t) => fils(n, t)[0];
+      const evt = (n, tags) => {
+        for (const t of tags) {
+          const e = un(n, t);
+          if (e && (un(e, "DATE") || un(e, "PLAC"))) {
+            return { date: dateGedcom(un(e, "DATE") ? un(e, "DATE").val : ""), lieu: un(e, "PLAC") ? un(e, "PLAC").val.trim() : "" };
+          }
+        }
+        return { date: "", lieu: "" };
+      };
+
+      // 2) individus
+      const parXref = {}, liste = [];
+      let i = 0;
+      for (const n of racine.sous) {
+        if (n.tag !== "INDI") continue;
+        const nomN = un(n, "NAME");
+        let prenom = "", nom = "";
+        if (nomN) {
+          const g = un(nomN, "GIVN"), sn = un(nomN, "SURN");
+          const m = /^(.*?)\s*\/(.*?)\/?\s*$/.exec(nomN.val);
+          prenom = g ? g.val : (m ? m[1] : nomN.val);
+          nom = sn ? sn.val : (m ? m[2] : "");
+        }
+        const naiss = evt(n, ["BIRT", "CHR", "BAPM"]), dec = evt(n, ["DEAT", "BURI"]);
+        const sx = un(n, "SEX");
+        const p = {
+          id: "g" + (++i).toString(36) + Math.random().toString(36).slice(2, 5),
+          prenom: majusculesNom(prenom), nom: majusculesNom(nom),
+          sexe: sx && /^[MH]/i.test(sx.val) ? "H" : sx && /^F/i.test(sx.val) ? "F" : "",
+          naissance: naiss.date, lieuNaissance: naiss.lieu, deces: dec.date, lieuDeces: dec.lieu,
+          pere: "", mere: "", conjoint: "", mariage: "", lieuMariage: "", divorce: "", lieuDivorce: "",
+          armee: "", unite: "", grade: "", periodeMilitaire: "", matricule: "", maj: Date.now()
+        };
+        const notes = [];
+        const ajouteNote = t => { if (t && t.trim()) notes.push({ id: nouvelId() + notes.length, texte: t.trim(), date: new Date().toLocaleDateString("fr-FR") }); };
+        fils(n, "OCCU").forEach(o => ajouteNote("Profession : " + o.val + (un(o, "DATE") ? " (" + dateGedcom(un(o, "DATE").val) + ")" : "")));
+        fils(n, "NOTE").forEach(o => ajouteNote(o.val));
+        fils(n, "EVEN").forEach(o => ajouteNote(o.val + (un(o, "DATE") ? " (" + dateGedcom(un(o, "DATE").val) + ")" : "")));
+        if (notes.length) p.notes = notes;
+        if (!p.prenom && !p.nom) p.prenom = "Inconnu";
+        parXref[n.xref] = p;
+        liste.push(p);
+      }
+
+      // 3) familles : parents, enfants, couple, mariage, divorce
+      for (const f of racine.sous) {
+        if (f.tag !== "FAM") continue;
+        const h = un(f, "HUSB"), w = un(f, "WIFE");
+        const pere = h && parXref[h.val], mere = w && parXref[w.val];
+        for (const c of fils(f, "CHIL")) {
+          const e = parXref[c.val];
+          if (!e) continue;
+          if (!e.pere && !e.mere) { if (pere) e.pere = pere.id; if (mere) e.mere = mere.id; }
+        }
+        if (pere && mere && !pere.conjoint && !mere.conjoint) {
+          const mar = evt(f, ["MARR"]), div = evt(f, ["DIV"]);
+          for (const [a, b] of [[pere, mere], [mere, pere]]) {
+            a.conjoint = b.id; a.mariage = mar.date; a.lieuMariage = mar.lieu; a.divorce = div.date; a.lieuDivorce = div.lieu;
+          }
+        }
+      }
+      return liste;
+    }
+
+    function lireTexteFichier(fichier) {
+      return new Promise((ok, ko) => {
+        const r = new FileReader();
+        r.onload = () => {
+          const oct = new Uint8Array(r.result);
+          try { ok(new TextDecoder("utf-8", { fatal: true }).decode(oct)); }
+          catch (e) { ok(new TextDecoder("windows-1252").decode(oct)); }   // anciens exports ANSI
+        };
+        r.onerror = ko;
+        r.readAsArrayBuffer(fichier);
+      });
+    }
+
+    async function importerGedcoms(fichiers) {
+      let dernierArbre = null, total = 0;
+      for (const f of fichiers) {
+        try {
+          const liste = lireGedcom(await lireTexteFichier(f));
+          if (!liste.length) { alert("Aucune personne trouvée dans « " + f.name + " »."); continue; }
+          const a = { id: nouvelId(), nom: f.name.replace(/\.(ged|gedcom|txt)$/i, ""), maj: Date.now(), personnes: liste };
+          base.arbres.push(a);
+          dernierArbre = a; total += liste.length;
+        } catch (e) { alert("Impossible de lire « " + f.name + " »."); }
+      }
+      if (!dernierArbre) return;
+      changerArbre(dernierArbre.id);
+      if (!sauvegarderBase()) alert("L’arbre est ouvert mais trop volumineux pour être mémorisé par le navigateur : exportez-le en .json pour le garder.");
+      aller("arbre");
+      dire(total + " personne(s) importée(s) depuis GEDCOM.");
+    }
+
+    function menuArbres() {
+      const rec = base.arbres.slice().sort((x, y) => y.maj - x.maj).slice(0, 4);
+      $("menuArbres").innerHTML = '<p class="titreMenu">Arbres récents</p>' +
+        rec.map(a => '<button type="button" data-a="ouvrir" data-i="' + a.id + '"' + (a.id === base.courant ? ' class="cur"' : "") + ">" + echapper(a.nom) + "</button>").join("") +
+        '<hr><button type="button" data-a="tous">Tous les arbres</button>' +
+        '<button type="button" data-a="creer">Créer un arbre</button>' +
+        '<button type="button" data-a="importerGed">Importer un GEDCOM (.ged)</button>' +
+        '<button type="button" data-a="importer">Importer un arbre (.json)</button>' +
+        '<button type="button" data-a="exporter" data-i="' + base.courant + '">Exporter cet arbre (.json)</button>';
+    }
+
+    function listeArbres() {
+      $("listeArbres").innerHTML = base.arbres.map(a =>
+        '<div class="ligneArbre' + (a.id === base.courant ? " cur" : "") + '"><div><b>' + echapper(a.nom) + "</b><small>" +
+        a.personnes.length + " personne(s) · modifié le " + new Date(a.maj).toLocaleDateString("fr-FR") + "</small></div>" +
+        '<div class="act"><button type="button" data-a="ouvrir" data-i="' + a.id + '">Ouvrir</button>' +
+        '<button type="button" data-a="renommer" data-i="' + a.id + '">Renommer</button>' +
+        '<button type="button" data-a="exporter" data-i="' + a.id + '">Exporter</button>' +
+        '<button type="button" class="danger" data-a="supprimer" data-i="' + a.id + '">Supprimer</button></div></div>').join("");
+    }
+
+    // ---------- Formats d'affichage : famille, ascendants, descendants, roue, liste ----------
+
+    const FORMATS = [["arbre", "Arbre"], ["famille", "Famille"], ["asc", "Ascendants"], ["desc", "Descendants"], ["roue", "Roue"], ["liste", "Liste"], ["carte", "Carte"]];
+
+    const racineVue = () => trouver(choix) || trouver(dernier) || personnes[0];
+
+    // Numérotation Sosa : 1 = la personne, 2 = son père, 3 = sa mère, 4 = père du père...
+    function ancetres(r) {
+      const m = {};
+      (function monter(p, s, g) {
+        if (!p || g > 7) return;
+        m[s] = p;
+        monter(p.pere && trouver(p.pere), 2 * s, g + 1);
+        monter(p.mere && trouver(p.mere), 2 * s + 1, g + 1);
+      })(r, 1, 1);
+      return m;
+    }
+
+    function nbAscendants(r) {
+      const vus = new Set();
+      (function monter(p) {
+        if (!p || vus.has(p.id)) return;
+        vus.add(p.id);
+        monter(p.pere && trouver(p.pere));
+        monter(p.mere && trouver(p.mere));
+      })(r);
+      return vus.size - 1;
+    }
+
+    const blocStat = (t, v) => "<div><span>" + t + "</span><b>" + v + "</b></div>";
+
+    function afficherCadre() {
+      const a = arbreCourant();
+      $("nomArbre").textContent = a.nom;
+      $("majArbre").textContent = "Dernière mise à jour le " + new Date(a.maj).toLocaleDateString("fr-FR");
+      $("formats").innerHTML = FORMATS.map(f => '<button type="button" data-v="' + f[0] + '"' + (f[0] === vue ? ' class="actif"' : "") + ">" + f[1] + "</button>").join("") ;
+    }
+
+    function noeudAsc(p, g) {
+      const pere = p.pere && trouver(p.pere), mere = p.mere && trouver(p.mere);
+      let h = '<div class="anc">' + carte(p);
+      if ((pere || mere) && g < 7) {
+        h += '<div class="parents">' + (pere ? noeudAsc(pere, g + 1) : "") + (mere ? noeudAsc(mere, g + 1) : "") + "</div>";
+      }
+      return h + "</div>";
+    }
+
+    function htmlListe() {
+      const l = personnes.slice().sort((a, b) =>
+        (a.nom || "").localeCompare(b.nom || "", "fr") || (a.prenom || "").localeCompare(b.prenom || "", "fr"));
+      return '<table class="liste"><thead><tr><th>Nom</th><th>Prénom</th><th>Naissance</th><th>Lieu</th><th>Décès</th></tr></thead><tbody>' +
+        l.map(p => '<tr class="sl' + (p.id === choix ? " on" : "") + '" data-id="' + p.id + '"><td>' + echapper((p.nom || "").toUpperCase()) +
+          "</td><td>" + echapper(p.prenom || "") + "</td><td>" + echapper(dateLongue(p.naissance)) + "</td><td>" +
+          echapper(p.lieuNaissance || "") + "</td><td>" + echapper(dateLongue(p.deces)) + "</td></tr>").join("") + "</tbody></table>";
+    }
+
+    // Roue : demi-cercle des ancêtres, 6 générations, une couleur par grand-parent
+    function roue(r) {
+      const A = ancetres(r), R0 = 62, W = 66, G = 6, cx = 470, cy = 470;
+      const P = (rr, t) => [cx - rr * Math.cos(t), cy - rr * Math.sin(t)];
+      const f = x => x.toFixed(1);
+      const teintes = { 2: "#fbdde2", 3: "#fdebc8", 4: "#e3dcf7", 5: "#d6ecf7", 6: "#fde0cf", 7: "#e0f1e3" };
+      let s = '<svg class="roue" viewBox="0 0 940 535" role="img" aria-label="Roue des ascendants">';
+      for (let k = 1; k <= G; k++) {
+        const n = 1 << k, r1 = R0 + (k - 1) * W, r2 = r1 + W - 3;
+        for (let i = 0; i < n; i++) {
+          const sosa = n + i, p = A[sosa];
+          const t1 = i * Math.PI / n, t2 = (i + 1) * Math.PI / n, tm = (t1 + t2) / 2;
+          const a = P(r2, t1), b = P(r2, t2), c = P(r1, t2), d = P(r1, t1);
+          const chemin = "M" + f(a[0]) + " " + f(a[1]) + "A" + r2 + " " + r2 + " 0 0 1 " + f(b[0]) + " " + f(b[1]) +
+            "L" + f(c[0]) + " " + f(c[1]) + "A" + r1 + " " + r1 + " 0 0 0 " + f(d[0]) + " " + f(d[1]) + "Z";
+          const branche = k === 1 ? sosa : sosa >> (k - 2);
+          s += "<g" + (p ? ' class="sl" data-id="' + p.id + '"' : "") + '><path d="' + chemin + '" fill="' +
+            (p ? teintes[branche] || "#fff" : "#f3eefa") + '" stroke="#fff" stroke-width="1.5"/>';
+          if (p) {
+            const rm = (r1 + r2) / 2, xy = P(rm, tm), deg = tm * 180 / Math.PI;
+            const radial = k >= 3;
+            const rot = radial ? (deg < 90 ? deg : deg - 180) : deg - 90;
+            const fs = [0, 13, 12, 11, 10, 9, 8][k];
+            const max = radial ? Math.floor(W / (fs * 0.55)) : 16;
+            const coupe = t => t.length > max ? t.slice(0, max - 1) + "…" : t;
+            const nom1 = coupe(((p.prenom || "").split(" ")[0] + " " + (p.nom || "").toUpperCase()).trim());
+            const an = annee(p.naissance) ? annee(p.naissance) + " - " + (annee(p.deces) || "") : "";
+            const lignes = k >= 6 || !an ? [nom1] : [nom1, an];
+            s += "<title>" + echapper(nomComplet(p)) + "</title>";
+            s += '<g transform="translate(' + f(xy[0]) + " " + f(xy[1]) + ") rotate(" + f(rot) + ')">';
+            lignes.forEach((t, j) => {
+              const y = (j - (lignes.length - 1) / 2) * (fs + 2) + fs * 0.35;
+              s += '<text y="' + f(y) + '" font-size="' + (j ? fs - 1 : fs) + '"' + (j ? ' style="fill:#7a7490"' : ' font-weight="700"') + ">" + echapper(t) + "</text>";
+            });
+            s += "</g>";
+          }
+          s += "</g>";
+        }
+      }
+      s += '<g class="sl" data-id="' + r.id + '"><circle cx="' + cx + '" cy="' + cy + '" r="' + (R0 - 4) + '" fill="#6c58b8"/>' +
+        '<text y="' + (cy - 4) + '" x="' + cx + '" font-size="14" font-weight="700" style="fill:#fff">' + echapper(((r.prenom || "").split(" ")[0])) + "</text>" +
+        '<text y="' + (cy + 14) + '" x="' + cx + '" font-size="14" font-weight="700" style="fill:#fff">' + echapper((r.nom || "").toUpperCase()) + "</text></g>";
+      return s + "</svg>";
+    }
+
+    function vueAlternative() {
+      if (vue === "liste") return htmlListe();
+      const r = racineVue();
+      if (!r) return "";
+      const nom = echapper(nomComplet(r));
+      if (vue === "asc") return '<div class="entetevue">Ascendants de ' + nom + '</div><div class="asc">' + noeudAsc(r, 1) + "</div>";
+      if (vue === "desc") return '<div class="entetevue">Descendants de ' + nom + "</div><ul>" + noeud(r, new Set()) + "</ul>";
+      if (vue === "roue") return '<div class="entetevue">Roue des ascendants de ' + nom + "</div>" + roue(r);
+      return "";
+    }
+
+    // ---------- Pages : accueil et arbre ----------
+
+    const norm = t => (t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    let pageCourante = "accueil";
+
+    function aller(page, opts) {
+      pageCourante = page;
+      $("accueil").hidden = page !== "accueil";
+      $("page").hidden = page !== "arbre";
+      $("btnAccueil").classList.toggle("actif", page === "accueil");
+      if (page === "accueil") {
+        afficherAccueil();
+      } else {
+        if (!choix && !ajout && personnes.length && !(opts && opts.formulaire)) ouvrir(dernier || personnes[0].id);
+        else majFiche();
+        if (carteLeaflet) setTimeout(() => carteLeaflet.invalidateSize(), 50);
+        if ($("monde")) setTimeout(() => vueCentre($("arbre"), false), 30);
+      }
+      window.scrollTo(0, 0);
+    }
+
+    function ouvrirPersonne(arbreId, id, ong) {
+      if (arbreId && arbreId !== base.courant) changerArbre(arbreId);
+      if (trouver(id)) {
+        ouvrir(id);
+        if (ong) { onglet = ong; majFiche(); }
+      }
+      aller("arbre");
+    }
+
+    function manques(p) {
+      const m = [];
+      if (!p.naissance) m.push("date de naissance");
+      if (!p.lieuNaissance) m.push("lieu de naissance");
+      if (!aDesParents(p)) m.push("parents");
+      return m;
+    }
+
+    function ligneP(p, arbreId, sous) {
+      return '<button type="button" class="ligneP" data-open="' + p.id + '" data-arbre="' + arbreId + '">' + avatar(p) +
+        "<span><b>" + echapper(nomComplet(p)) + "</b><small>" + echapper(sous) + "</small></span></button>";
+    }
+
+    function evenementsDuJour() {
+      const t = new Date(), j = t.getDate(), m = t.getMonth() + 1, l = [];
+      for (const p of personnes) {
+        const c = p.conjoint && trouver(p.conjoint);
+        for (const [mot, k] of [["Naissance", "naissance"], ["Décès", "deces"], ["Mariage", "mariage"]]) {
+          const x = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(p[k] || "");
+          if (!x || +x[1] !== j || +x[2] !== m) continue;
+          if (k === "mariage" && c && p.id > c.id) continue;
+          l.push({ p: p, c: k === "mariage" ? c : null, mot: mot, an: +x[3], ecart: t.getFullYear() - x[3] });
+        }
+      }
+      return l;
+    }
+
+    function afficherAccueil() {
+      const a = arbreCourant(), r = racineVue();
+
+      // À compléter
+      const incompl = personnes.map(p => ({ p: p, m: manques(p) })).filter(x => x.m.length).sort((x, y) => y.m.length - x.m.length);
+      $("aSugg").innerHTML = "<h2>À compléter</h2>" +
+        (incompl.length
+          ? incompl.slice(0, 5).map(x => ligneP(x.p, a.id, "Manque : " + x.m.join(", "))).join("") +
+            (incompl.length > 5 ? '<button type="button" class="action clair large" data-liste="1">Voir les ' + incompl.length + " fiches à compléter</button>" : "")
+          : '<p class="doux">' + (personnes.length ? "Toutes les fiches sont complètes." : "Ajoutez des personnes pour voir ici ce qu’il reste à compléter.") + "</p>");
+
+      // Arbre ouvert
+      const recents = personnes.map((p, i) => ({ p: p, t: p.maj || 0, i: i })).sort((x, y) => y.t - x.t || y.i - x.i).slice(0, 12);
+      const ans = [];
+      for (const p of personnes) for (const k of ["naissance", "deces", "mariage"]) { const y = +annee(p[k]); if (y) ans.push(y); }
+      $("aArbre").innerHTML = '<h2><button type="button" class="lienTitre" data-go="1">' + echapper(a.nom) + "</button></h2>" +
+        '<p class="doux">Dernière mise à jour le ' + new Date(a.maj).toLocaleDateString("fr-FR") + "</p>" +
+        (personnes.length
+          ? "<h3>Derniers individus modifiés</h3>" +
+            '<div class="carrouselBloc"><button type="button" data-scroll="-1" aria-label="Précédent">‹</button><div id="carrousel">' +
+            recents.map(x => carte(x.p)).join("") + '</div><button type="button" data-scroll="1" aria-label="Suivant">›</button></div>'
+          : '<div class="vide">Votre arbre est vide.<br><button type="button" class="action" data-nouveau="1">Commencer par ma fiche</button></div>') +
+        '<div class="bandeau">' + blocStat("Individus", personnes.length) + blocStat("Ascendants directs", r ? nbAscendants(r) : 0) +
+        blocStat("Période", ans.length ? Math.min.apply(null, ans) + " > " + Math.max.apply(null, ans) : "—") + "</div>";
+
+      // Mes arbres
+      $("aArbres").innerHTML = '<div class="entete2"><h2>Mes arbres</h2><button type="button" class="plusBtn" data-creer="1" aria-label="Créer un arbre" title="Créer un arbre">+</button></div>' +
+        '<button type="button" class="action clair large" data-importged="1">Importer un GEDCOM (.ged)</button>' +
+        base.arbres.map(x => '<button type="button" class="ligneT' + (x.id === base.courant ? " cur" : "") + '" data-arbreouvrir="' + x.id + '"><b>' +
+          echapper(x.nom) + "</b><small>" + x.personnes.length + " personne(s)</small></button>").join("");
+
+      // Dernières photos (tous les arbres)
+      const photos = [];
+      for (const ar of base.arbres) for (const p of ar.personnes) for (const d of (p.docs || [])) if (d.type === "image") photos.push({ d: d, p: p, ar: ar });
+      photos.sort((x, y) => (y.d.id > x.d.id ? 1 : -1));
+      $("aPhotos").innerHTML = "<h2>Dernières photos</h2>" + (photos.length
+        ? '<div class="vignesA">' + photos.slice(0, 6).map(x => '<button type="button" class="vign" data-open="' + x.p.id + '" data-arbre="' + x.ar.id +
+            '" data-photo="1" title="' + echapper(nomComplet(x.p)) + '"><img src="' + x.d.data + '" alt="' + echapper(x.d.nom) + '"></button>').join("") + "</div>"
+        : '<p class="doux">Ajoutez des photos depuis la frise d’une personne : elles apparaîtront ici.</p>');
+
+      // Ce jour dans l'arbre
+      const t = new Date(), jour = evenementsDuJour();
+      $("aJour").innerHTML = '<p class="jourGros">' + t.getDate() + "<small>" + MOIS[t.getMonth()] + "</small></p>" +
+        (jour.length ? jour.slice(0, 4).map(x => '<button type="button" class="evJour" data-open="' + x.p.id + '" data-arbre="' + a.id + '">' + x.mot + " de " +
+            echapper(nomComplet(x.p)) + (x.c ? " et " + echapper(nomComplet(x.c)) : "") + "<small>en " + x.an + (x.ecart > 0 ? " · il y a " + x.ecart + " ans" : "") + "</small></button>").join("")
+          : '<p class="doux">Aucun événement à cette date dans votre arbre.</p>');
+    }
+
+    // ---------- Carte des lieux ----------
+
+    const CLE_GEO = "geo-cache-v1";
+    let geo = {};
+    try { geo = JSON.parse(localStorage.getItem(CLE_GEO) || "{}"); } catch (e) {}
+    let carteLeaflet = null, coucheCarte = null, geoEnCours = false, geoBloque = false;
+    const filtresCarte = { qui: "tous", type: "tous", periode: "toutes" };
+    const PERIODES = { avant1800: [0, 1799], p1800: [1800, 1899], p1900: [1900, 1949], p1950: [1950, 3000] };
+    const SEUILS = [[1, 2, "1-2", "#fdf0c8"], [3, 5, "3-5", "#fbd7b0"], [6, 15, "6-15", "#f6bcc0"], [16, 39, "16-39", "#e0a8d2"], [40, 99, "40-99", "#b9aae0"], [100, 1e9, "100+", "#8fa8dc"]];
+    const couleurDensite = n => (SEUILS.find(x => n >= x[0] && n <= x[1]) || SEUILS[0])[3];
+    const cleLieu = l => norm(l).replace(/\s+/g, " ").trim();
+
+    function evenementsCarte() {
+      const ev = [];
+      const ajoute = (type, p, date, lieu, autre) => {
+        if (lieu && lieu.trim()) ev.push({ type: type, p: p, autre: autre, an: +annee(date) || 0, lieu: lieu.trim() });
+      };
+      for (const p of personnes) {
+        ajoute("Naissance", p, p.naissance, p.lieuNaissance);
+        ajoute("Décès", p, p.deces, p.lieuDeces);
+        const c = p.conjoint && trouver(p.conjoint);
+        if (!c || p.id < c.id) {   // un seul événement par couple
+          ajoute("Mariage", p, p.mariage || (c && c.mariage), p.lieuMariage || (c && c.lieuMariage), c);
+          ajoute("Divorce", p, p.divorce || (c && c.divorce), p.lieuDivorce || (c && c.lieuDivorce), c);
+        }
+      }
+      return ev;
+    }
+
+    function idsQui() {
+      const r = racineVue();
+      if (!r || filtresCarte.qui === "tous") return null;
+      const vus = new Set();
+      if (filtresCarte.qui === "asc") {
+        (function m(p) { if (!p || vus.has(p.id)) return; vus.add(p.id); m(p.pere && trouver(p.pere)); m(p.mere && trouver(p.mere)); })(r);
+      } else {
+        (function d(p) { if (!p || vus.has(p.id)) return; vus.add(p.id); personnes.filter(c => c.pere === p.id || c.mere === p.id).forEach(d); })(r);
+      }
+      return vus;
+    }
+
+    function popupLieu(g) {
+      const par = {};
+      g.ev.forEach(e => { (par[e.type] = par[e.type] || []).push(e); });
+      return "<b>" + echapper(g.nom) + "</b>" + Object.keys(par).map(t =>
+        '<div class="pop"><u>' + t + " (" + par[t].length + ")</u>" + par[t].slice(0, 12).map(e =>
+          '<a data-pid="' + e.p.id + '">' + echapper(nomComplet(e.p)) + "</a>" +
+          (e.autre ? " et " + echapper(nomComplet(e.autre)) : "") + (e.an ? " (" + e.an + ")" : "")).join("<br>") +
+        (par[t].length > 12 ? "<br>…" : "") + "</div>").join("");
+    }
+
+    // ----- Frontières (pays, régions, départements) chargées à la demande -----
+    const PAYS_FR = { "United States of America": "États-Unis", "Brazil": "Brésil", "Germany": "Allemagne", "Belgium": "Belgique", "Italy": "Italie", "Spain": "Espagne",
+      "United Kingdom": "Royaume-Uni", "Switzerland": "Suisse", "Poland": "Pologne", "Algeria": "Algérie", "Morocco": "Maroc", "Tunisia": "Tunisie", "Netherlands": "Pays-Bas",
+      "Russia": "Russie", "Mexico": "Mexique", "China": "Chine", "Japan": "Japon", "India": "Inde", "Turkey": "Turquie", "Ireland": "Irlande", "Austria": "Autriche", "Sweden": "Suède",
+      "Norway": "Norvège", "Denmark": "Danemark", "Greece": "Grèce", "Senegal": "Sénégal", "Vietnam": "Vietnam", "Lebanon": "Liban", "Egypt": "Égypte", "Czech Republic": "Tchéquie",
+      "Romania": "Roumanie", "Hungary": "Hongrie", "Ukraine": "Ukraine", "Argentina": "Argentine", "Australia": "Australie", "South Africa": "Afrique du Sud", "Haiti": "Haïti", "Cameroon": "Cameroun" };
+    const URLS_GEO = {
+      pays: ["https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json", "https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json"],
+      regions: ["https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/regions-version-simplifiee.geojson", "https://cdn.jsdelivr.net/gh/gregoiredavid/france-geojson@master/regions-version-simplifiee.geojson"],
+      deps: ["https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements-version-simplifiee.geojson", "https://cdn.jsdelivr.net/gh/gregoiredavid/france-geojson@master/departements-version-simplifiee.geojson"]
+    };
+    let fondsGeo = null, fondsEtat = "", niveauCourant = "", zonesCache = {};
+
+    async function chargerJson(urls) {
+      for (const u of urls) { try { const r = await fetch(u); if (r.ok) return await r.json(); } catch (e) {} }
+      return null;
+    }
+
+    function preparerFonds(pays, regions, deps) {
+      const fonds = { pays: [], regions: [], deps: [], france: null, depParNom: {}, regParNom: {}, regDeDep: {} };
+      const prep = (col, pre, nomDe) => (col && col.features || []).filter(f => f.geometry).map((f, i) => {
+        let xmin = 1e9, xmax = -1e9, ymin = 1e9, ymax = -1e9;
+        const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.type === "MultiPolygon" ? f.geometry.coordinates : [];
+        polys.forEach(po => po[0].forEach(c => { if (c[0] < xmin) xmin = c[0]; if (c[0] > xmax) xmax = c[0]; if (c[1] < ymin) ymin = c[1]; if (c[1] > ymax) ymax = c[1]; }));
+        f._id = pre + i; f._nom = nomDe(f); f._bb = [xmin, ymin, xmax, ymax]; f._polys = polys;
+        return f;
+      });
+      fonds.pays = prep(pays, "p", f => PAYS_FR[f.properties.name] || (f.properties.name === "France" ? "France" : f.properties.name));
+      fonds.regions = prep(regions, "r", f => f.properties.nom);
+      fonds.deps = prep(deps, "d", f => f.properties.nom);
+      fonds.france = fonds.pays.find(f => f.properties.name === "France") || null;
+      fonds.deps.forEach(f => { fonds.depParNom[norm(f._nom)] = f; });
+      fonds.regions.forEach(f => { fonds.regParNom[norm(f._nom)] = f; });
+      return fonds;
+    }
+
+    async function chargerFonds() {
+      if (fondsEtat) return;
+      fondsEtat = "chargement";
+      const [pays, regions, deps] = await Promise.all([chargerJson(URLS_GEO.pays), chargerJson(URLS_GEO.regions), chargerJson(URLS_GEO.deps)]);
+      if (!pays) { fondsEtat = "erreur"; if ($("carteBloc")) majMarqueurs(false); return; }
+      fondsGeo = preparerFonds(pays, regions, deps);
+      fondsEtat = "ok"; zonesCache = {};
+      if ($("carteBloc")) majMarqueurs(false);
+    }
+
+    function dansAnneau(pt, ring) {
+      let c = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    }
+    const dansFeature = (pt, f) => pt[0] >= f._bb[0] && pt[0] <= f._bb[2] && pt[1] >= f._bb[1] && pt[1] <= f._bb[3] &&
+      f._polys.some(po => dansAnneau(pt, po[0]) && !po.slice(1).some(h => dansAnneau(pt, h)));
+    const quelleZone = (liste, pt) => liste.find(f => dansFeature(pt, f)) || null;
+
+    // Région d'un département : on teste un point intérieur du département
+    function regionDuDep(dep) {
+      if (dep._reg !== undefined) return dep._reg;
+      const b = dep._bb, essais = [[(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]];
+      const ring = dep._polys.reduce((m, po) => po[0].length > m.length ? po[0] : m, []);
+      if (ring.length) {
+        const mx = ring.reduce((a, c) => a + c[0], 0) / ring.length, my = ring.reduce((a, c) => a + c[1], 0) / ring.length;
+        essais.push([mx, my], ring[0]);
+      }
+      dep._reg = null;
+      for (const pt of essais) if (dansFeature(pt, dep)) { dep._reg = quelleZone(fondsGeo.regions, pt); if (dep._reg) break; }
+      if (!dep._reg) for (const pt of essais) { dep._reg = quelleZone(fondsGeo.regions, pt); if (dep._reg) break; }
+      return dep._reg;
+    }
+
+    // À quel pays / région / département appartient un lieu ? (coordonnées si connues, sinon lecture du texte pour la France)
+    function zonesDe(lieu, k) {
+      const c = geo[k], avecGeo = !!c, ca = zonesCache[k];
+      if (ca && ca.avecGeo === avecGeo) return ca.z;
+      const z = { pays: null, reg: null, dep: null };
+      if (c) {
+        const pt = [c[1], c[0]];
+        z.pays = quelleZone(fondsGeo.pays, pt);
+        if (z.pays && z.pays === fondsGeo.france) { z.dep = quelleZone(fondsGeo.deps, pt); z.reg = quelleZone(fondsGeo.regions, pt); }
+      }
+      if (!z.pays || z.pays === fondsGeo.france) {
+        const parts = lieu.split(",").map(x => norm(x).trim()).filter(Boolean);
+        if (parts.length > 1 && parts[parts.length - 1] === "france") {
+          z.pays = z.pays || fondsGeo.france;
+          for (let i = 1; i < parts.length - 1; i++) {
+            if (!z.dep && fondsGeo.depParNom[parts[i]]) z.dep = fondsGeo.depParNom[parts[i]];
+            if (!z.reg && fondsGeo.regParNom[parts[i]]) z.reg = fondsGeo.regParNom[parts[i]];
+          }
+        }
+        if (z.dep && !z.reg) z.reg = regionDuDep(z.dep);
+      }
+      zonesCache[k] = { avecGeo: avecGeo, z: z };
+      return z;
+    }
+
+    // Niveau d'affichage selon le zoom : pays, régions, départements, puis lieux précis
+    const niveauCarte = () => { const zm = carteLeaflet.getZoom(); return zm <= 4 ? "pays" : zm <= 6 ? "region" : zm <= 9 ? "dep" : "lieu"; };
+    const NOM_NIVEAU = { pays: "pays", region: "régions", dep: "départements" };
+
+    function dessinerZones(lieux, niv) {
+      const zones = {};
+      let sans = 0;
+      for (const k in lieux) {
+        const g = lieux[k], z = zonesDe(g.nom, k);
+        const f = niv === "pays" ? z.pays : (z.pays === fondsGeo.france ? (niv === "region" ? z.reg : z.dep) : z.pays);
+        if (!f) { sans += g.ev.length; continue; }
+        (zones[f._id] = zones[f._id] || { f: f, ev: [] }).ev.push.apply(zones[f._id].ev, g.ev);
+      }
+      for (const id in zones) {
+        const zn = zones[id], n = zn.ev.length, st = { fillColor: couleurDensite(n), fillOpacity: 0.85, color: "#fff", weight: 1.4 };
+        const couche = L.geoJSON(zn.f, { style: st });
+        couche.on("mouseover", function () { couche.setStyle({ weight: 2.5, fillOpacity: 0.95 }); });
+        couche.on("mouseout", function () { couche.setStyle(st); });
+        couche.bindTooltip(echapper(zn.f._nom) + " (" + n + ")", { sticky: true })
+          .bindPopup(popupLieu({ nom: zn.f._nom, ev: zn.ev }), { maxWidth: 320 }).addTo(coucheCarte);
+      }
+      return { sans: sans };
+    }
+
+    function majMarqueurs(recadrer) {
+      if (!carteLeaflet) return;
+      coucheCarte.clearLayers();
+      const qui = idsQui(), pe = PERIODES[filtresCarte.periode];
+      const ev = evenementsCarte().filter(e =>
+        (filtresCarte.type === "tous" || e.type === filtresCarte.type) &&
+        (!qui || qui.has(e.p.id)) &&
+        (!pe || (e.an && e.an >= pe[0] && e.an <= pe[1])));
+      const lieux = {};
+      ev.forEach(e => { const k = cleLieu(e.lieu); (lieux[k] = lieux[k] || { nom: e.lieu, ev: [] }).ev.push(e); });
+      const inconnus = [], introuvables = [], points = [];
+      for (const k in lieux) {
+        const g = lieux[k];
+        if (!(k in geo)) { inconnus.push(g); continue; }
+        if (!geo[k]) { introuvables.push(g.nom); continue; }
+        points.push(geo[k]);
+      }
+      const niv = niveauCarte();
+      const parZones = niv !== "lieu" && !!fondsGeo && (niv === "pays" || (fondsGeo.regions.length && fondsGeo.deps.length));
+      let info = "";
+      if (parZones) {
+        const r = dessinerZones(lieux, niv);
+        info = " · vue par " + NOM_NIVEAU[niv] + " (zoomez pour affiner)" + (r.sans ? " · " + r.sans + " événement(s) pas encore placé(s)" : "");
+      } else {
+        for (const k in lieux) {
+          if (!geo[k]) continue;
+          const g = lieux[k], n = g.ev.length;
+          L.circleMarker(geo[k], { radius: Math.min(26, 8 + 3 * Math.sqrt(n)), color: "#fff", weight: 2, fillColor: couleurDensite(n), fillOpacity: 0.88 })
+            .bindPopup(popupLieu(g), { maxWidth: 320 })
+            .bindTooltip(echapper(g.nom) + " (" + n + ")")
+            .addTo(coucheCarte);
+        }
+        if (niv !== "lieu" && fondsEtat === "erreur") info = " · frontières indisponibles (connexion ?), affichage par lieux";
+        else if (niv !== "lieu" && fondsEtat !== "ok") info = " · chargement des frontières…";
+      }
+      if (recadrer && points.length) carteLeaflet.fitBounds(points, { padding: [40, 40], maxZoom: 8 });
+      const enCours = inconnus.length && !geoBloque;
+      $("statutCarte").textContent = (ev.length ? points.length + " lieu(x) localisé(s) · " + ev.length + " événement(s)" : "Aucun lieu renseigné pour ces filtres : ajoutez des lieux dans les fiches.") + info +
+        (enCours ? " · localisation en cours, " + inconnus.length + " lieu(x) restant(s)…" : "") +
+        (inconnus.length && geoBloque ? " · " + inconnus.length + " lieu(x) non localisé(s) (connexion internet nécessaire)" : "") +
+        (introuvables.length ? " · introuvable(s) : " + introuvables.slice(0, 5).join(", ") + (introuvables.length > 5 ? "…" : "") + " (essayez « Ville, département »)" : "");
+      if (enCours) {
+        // d'abord les lieux dont on ne connaît pas la zone, puis les plus nombreux
+        const prio = g => (fondsGeo && zonesDe(g.nom, cleLieu(g.nom)).pays) ? 1 : 0;
+        inconnus.sort((x, y) => prio(x) - prio(y) || y.ev.length - x.ev.length);
+        localiserLieux(inconnus.map(g => g.nom));
+      }
+    }
+
+    async function localiserLieux(lieux) {
+      if (geoEnCours) return;
+      geoEnCours = true;
+      let echec = false;
+      for (const l of lieux) {
+        if (!$("carteBloc")) break;   // on a quitté la carte
+        try {
+          const chercher = async q => {
+            const rep = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=fr&q=" + encodeURIComponent(q));
+            if (!rep.ok) throw new Error("http");
+            return rep.json();
+          };
+          let d = await chercher(l);
+          const morceaux = l.split(",").map(x => x.trim()).filter(Boolean);
+          if (!d[0] && morceaux.length > 2) {
+            await new Promise(ok => setTimeout(ok, 1100));
+            d = await chercher(morceaux[0] + ", " + morceaux[morceaux.length - 1]);
+          }
+          geo[cleLieu(l)] = d[0] ? [+d[0].lat, +d[0].lon] : null;
+          try { localStorage.setItem(CLE_GEO, JSON.stringify(geo)); } catch (e) {}
+          majMarqueurs(false);
+        } catch (e) { echec = true; break; }
+        await new Promise(ok => setTimeout(ok, 1100));   // politesse envers le service de localisation
+      }
+      geoEnCours = false;
+      if (echec) geoBloque = true;
+      if ($("carteBloc")) majMarqueurs(true);
+    }
+
+    function afficherCarte(zone) {
+      if ($("page").hidden) return;
+      if ($("carteBloc")) { majMarqueurs(false); return; }
+      if (carteLeaflet) { carteLeaflet.remove(); carteLeaflet = null; }
+      if (typeof L === "undefined") {
+        zone.innerHTML = '<div class="vide">La carte a besoin d’internet (la bibliothèque Leaflet ne s’est pas chargée). Reconnectez-vous puis rechargez la page.</div>';
+        return;
+      }
+      const opt = (v, t, cur) => '<option value="' + v + '"' + (v === cur ? " selected" : "") + ">" + t + "</option>";
+      zone.innerHTML = '<div id="carteBloc"><div class="filtresCarte">' +
+        '<select data-fc="qui" aria-label="Individus">' + opt("tous", "Tous les individus", filtresCarte.qui) +
+          opt("asc", "Ascendants de la personne ouverte", filtresCarte.qui) + opt("desc", "Descendants de la personne ouverte", filtresCarte.qui) + "</select>" +
+        '<select data-fc="type" aria-label="Événements">' + opt("tous", "Tous les événements", filtresCarte.type) + opt("Naissance", "Naissances", filtresCarte.type) +
+          opt("Mariage", "Mariages", filtresCarte.type) + opt("Décès", "Décès", filtresCarte.type) + opt("Divorce", "Divorces", filtresCarte.type) + "</select>" +
+        '<select data-fc="periode" aria-label="Périodes">' + opt("toutes", "Toutes les périodes", filtresCarte.periode) + opt("avant1800", "Avant 1800", filtresCarte.periode) +
+          opt("p1800", "1800 - 1899", filtresCarte.periode) + opt("p1900", "1900 - 1949", filtresCarte.periode) + opt("p1950", "Depuis 1950", filtresCarte.periode) + "</select>" +
+        '</div><div id="carteL"></div><p id="statutCarte" class="doux"></p></div>';
+      carteLeaflet = L.map("carteL").setView([46.6, 2.4], 6);
+      const fondClair = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 18, maxNativeZoom: 16, attribution: "Tuiles © Esri" }).addTo(carteLeaflet);
+      const fondEsri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 18, attribution: "Tuiles © Esri" });
+      const fondOsm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        { maxZoom: 19, attribution: "© les contributeurs d’OpenStreetMap", referrerPolicy: "origin" });
+      const fondSat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 18, attribution: "Imagerie © Esri" });
+      L.control.layers({ "Clair": fondClair, "Plan": fondEsri, "OpenStreetMap": fondOsm, "Satellite": fondSat }, null, { position: "topright" }).addTo(carteLeaflet);
+      coucheCarte = L.layerGroup().addTo(carteLeaflet);
+      const lg = L.control({ position: "bottomright" });
+      lg.onAdd = function () {
+        const d = L.DomUtil.create("div", "legendeCarte");
+        d.innerHTML = SEUILS.map(x => '<div><i style="background:' + x[3] + '"></i>' + x[2] + "</div>").join("");
+        return d;
+      };
+      lg.addTo(carteLeaflet);
+      geoBloque = false;
+      niveauCourant = niveauCarte();
+      carteLeaflet.on("zoomend", function () {
+        const n = niveauCarte();
+        if (n !== niveauCourant) { niveauCourant = n; majMarqueurs(false); }
+      });
+      chargerFonds();
+      majMarqueurs(true);
+    }
+
+    // ---------- La fiche (formulaire) ----------
+
+    function remplirListes() {
+      for (const k of ["pere", "mere", "conjoint"]) {
+        const courant = $(k).value;
+        const liste = personnes.filter(p =>
+          p.id !== choix &&
+          (k === "pere" ? p.sexe !== "F" : k === "mere" ? p.sexe !== "H" : true));
+        $(k).innerHTML = '<option value="">—</option>' +
+          liste.map(p => '<option value="' + p.id + '">' + echapper(nomComplet(p)) + "</option>").join("");
+        $(k).value = courant;
+      }
+    }
+
+    function afficherRelations() {
+      const x = choix && trouver(choix);
+      const div = $("relations");
+      if (!x) { div.innerHTML = ""; div.hidden = true; return; }
+      div.hidden = false;
+
+      const boutons = [];
+      if (!(x.pere && trouver(x.pere))) boutons.push(["pere", "+ Père"]);
+      if (!(x.mere && trouver(x.mere))) boutons.push(["mere", "+ Mère"]);
+      if (aDesParents(x)) boutons.push(["frere", "+ Frère / sœur"]);
+      if (!(x.conjoint && trouver(x.conjoint))) boutons.push(["conjoint", "+ Conjoint(e)"]);
+      boutons.push(["enfant", "+ Enfant"]);
+
+      div.innerHTML = "<p>Ajouter un proche de " + echapper(x.prenom || "cette personne") + " :</p>" +
+        boutons.map(b => '<button type="button" data-rel="' + b[0] + '">' + b[1] + "</button>").join("") +
+        (aDesParents(x) ? "" : "<small>Ajoutez d’abord un parent pour pouvoir ajouter des frères et sœurs.</small>");
+    }
+
+    function majFiche() {
+      const p = choix && trouver(choix);
+      const x = ajout && trouver(ajout.ref);
+      const titres = {
+        pere: "Nouveau père", mere: "Nouvelle mère",
+        frere: "Nouveau frère ou nouvelle sœur", enfant: "Nouvel enfant",
+        conjoint: "Nouveau conjoint ou nouvelle conjointe"
+      };
+
+      if (p) {
+        $("titre").textContent = "Fiche de " + (p.prenom || nomComplet(p));
+        $("aide").textContent = "Modifiez les champs puis cliquez sur Enregistrer.";
+      } else if (x) {
+        $("titre").textContent = titres[ajout.type] + " de " + x.prenom;
+        $("aide").textContent = "Remplissez ce que vous savez, le reste pourra être complété plus tard.";
+      } else if (!personnes.length) {
+        $("titre").textContent = "Ma fiche";
+        $("aide").textContent = "Commencez par vous : remplissez votre propre fiche.";
+      } else {
+        $("titre").textContent = "Nouvelle personne";
+        $("aide").textContent = "";
+      }
+
+      $("ok").textContent = p ? "Enregistrer" : "Ajouter";
+      $("supprimer").hidden = !p;
+      $("supprimer").textContent = "Supprimer";
+      confirmer = false;
+      $("nouveau").hidden = !p;
+      $("annuler").hidden = !x;
+      afficherEntete();
+      afficherRelations();
+      afficherEvenements();
+      afficherFamille();
+      afficherDocs();
+      afficherNotes();
+      const vues = { fiche: "vueFiche", famille: "vueFamille", docs: "vueDocs", notes: "vueNotes" };
+      for (const o in vues) $(vues[o]).hidden = !p || onglet !== o;
+      $("vueModifier").hidden = !!p && onglet !== "modifier";
+      $("onglets").hidden = !p;
+      for (const b of document.querySelectorAll("#onglets button")) {
+        b.classList.toggle("actif", b.dataset.o === onglet);
+      }
+      afficherArbre();
+    }
+
+    function ouvrir(id) {
+      choix = id;
+      dernier = id;
+      ajout = null;
+      remplirListes();
+      const p = trouver(id);
+      for (const k of CHAMPS) $(k).value = p[k] || "";
+      $("militaire").open = !!(p.armee || p.unite || p.grade || p.periodeMilitaire || p.matricule);
+      onglet = "fiche";
+      majFiche();
+    }
+
+    function nouvelle(relation) {
+      choix = null;
+      ajout = relation || null;
+      $("formulaire").reset();
+      $("militaire").open = false;
+      remplirListes();
+
+      const x = relation && trouver(relation.ref);
+      if (x) {
+        if (relation.type === "pere") { $("sexe").value = "H"; $("nom").value = x.nom || ""; }
+        if (relation.type === "mere") { $("sexe").value = "F"; }
+        if (relation.type === "frere") {
+          $("pere").value = x.pere || "";
+          $("mere").value = x.mere || "";
+          $("nom").value = x.nom || "";
+        }
+        if (relation.type === "enfant") {
+          if (x.sexe === "F") { $("mere").value = x.id; $("pere").value = x.conjoint || ""; }
+          else { $("pere").value = x.id; $("mere").value = x.conjoint || ""; }
+        }
+        if (relation.type === "conjoint") { $("conjoint").value = x.id; }
+      }
+      onglet = "modifier";
+      majFiche();
+      $("prenom").focus();
+    }
+
+    // ---------- Enregistrement ----------
+
+    function lierParents(q) {
+      const a = q.pere && trouver(q.pere);
+      const b = q.mere && trouver(q.mere);
+      if (a && b && !a.conjoint && !b.conjoint) {
+        a.conjoint = b.id;
+        b.conjoint = a.id;
+      }
+    }
+
+    $("formulaire").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const prenom = $("prenom").value.trim();
+      const nom = $("nom").value.trim();
+      if (!prenom && !nom) { dire("Indiquez au moins un prénom ou un nom."); return; }
+
+      let p = choix && trouver(choix);
+      if (!p) {
+        p = { id: nouvelId() };
+        personnes.push(p);
+      }
+      const ancienConjoint = p.conjoint;
+
+      for (const k of CHAMPS) {
+        p[k] = $(k).value.trim();
+      }
+      p.maj = Date.now();
+
+      // Le lien de conjoint va dans les deux sens
+      if (ancienConjoint && ancienConjoint !== p.conjoint) {
+        const o = trouver(ancienConjoint);
+        if (o && o.conjoint === p.id) { o.conjoint = ""; o.mariage = ""; o.lieuMariage = ""; o.divorce = ""; o.lieuDivorce = ""; }
+      }
+      if (p.conjoint) {
+        const o = trouver(p.conjoint);
+        if (o.conjoint && o.conjoint !== p.id) {
+          const autre = trouver(o.conjoint);
+          if (autre && autre.conjoint === o.id) autre.conjoint = "";
+        }
+        o.conjoint = p.id;
+        o.mariage = p.mariage;
+        o.lieuMariage = p.lieuMariage;
+        o.divorce = p.divorce;
+        o.lieuDivorce = p.lieuDivorce;
+      }
+
+      // Un père et une mère communs forment un couple
+      lierParents(p);
+
+      // Si on ajoutait un père ou une mère, on le rattache à la personne de départ
+      let retour = p.id;
+      if (ajout) {
+        const x = trouver(ajout.ref);
+        if (x) {
+          if (ajout.type === "pere") x.pere = p.id;
+          if (ajout.type === "mere") x.mere = p.id;
+          lierParents(x);
+          retour = x.id;
+        }
+      }
+
+      sauvegarder();
+      const message = ajout ? "Ajouté : " + nomComplet(p) + "." : "Enregistré : " + nomComplet(p) + ".";
+      ouvrir(retour);
+      dire(message);
+    });
+
+    // ---------- Boutons ----------
+
+    $("arbre").addEventListener("click", function (e) {
+      const z = e.target.closest("[data-z]");
+      if (z) {
+        const cw = this.clientWidth / 2, ch = this.clientHeight / 2;
+        if (z.dataset.z === "+") zoomerAutour(cw, ch, 1.25);
+        else if (z.dataset.z === "-") zoomerAutour(cw, ch, 0.8);
+        else vueCentre(this, z.dataset.z === "tout");
+        return;
+      }
+      const ph = e.target.closest("[data-ph]");
+      if (ph) { ouvrir(ph.dataset.pour); nouvelle({ type: ph.dataset.ph, ref: ph.dataset.pour }); dire(""); return; }
+      const cv = e.target.closest("[data-chev]");
+      if (cv) { ouvrir(cv.dataset.chev); dire(""); return; }
+      const c = e.target.closest(".carte, .sl");
+      if (c) { ouvrir(c.dataset.id); dire(""); return; }
+      const pa = e.target.closest("a[data-pid]");
+      if (pa) { ouvrir(pa.dataset.pid); dire(""); }
+    });
+
+    $("relations").addEventListener("click", function (e) {
+      const t = e.target.dataset.rel;
+      if (t) { nouvelle({ type: t, ref: choix }); dire(""); }
+    });
+
+    $("nouveau").addEventListener("click", function () { nouvelle(null); dire(""); });
+
+    $("annuler").addEventListener("click", function () {
+      if (ajout) ouvrir(ajout.ref);
+      dire("");
+    });
+
+    $("supprimer").addEventListener("click", function () {
+      if (!confirmer) {
+        confirmer = true;
+        $("supprimer").textContent = "Confirmer la suppression";
+        return;
+      }
+      const id = choix;
+      personnes = personnes.filter(p => p.id !== id);
+      for (const p of personnes) {
+        for (const k of ["pere", "mere", "conjoint"]) {
+          if (p[k] === id) p[k] = "";
+        }
+      }
+      sauvegarder();
+      nouvelle(null);
+      dire("Personne supprimée.");
+    });
+
+    $("effacer").addEventListener("click", function () {
+      if (confirm("Effacer tout l’arbre et repartir de zéro ?")) {
+        personnes = [];
+        sauvegarder();
+        nouvelle(null);
+        dire("");
+      }
+    });
+
+    $("onglets").addEventListener("click", function (e) {
+      const o = e.target.dataset.o;
+      if (o) { onglet = o; majFiche(); }
+    });
+
+    $("vueFiche").addEventListener("click", function (e) {
+      const bt = e.target.closest("button");
+      if (bt && bt.dataset.menuev) {
+        const m = bt.nextElementSibling, etaitOuvert = !m.hidden;
+        fermerMenus();
+        m.hidden = etaitOuvert;
+        return;
+      }
+      if (bt && bt.dataset.modif) { fermerMenus(); onglet = "modifier"; majFiche(); return; }
+      if (bt && bt.dataset.photoev) {
+        fermerMenus();
+        catEv = bt.dataset.photoev;
+        $("fichierEv").click();
+        return;
+      }
+      const o = e.target.dataset.ouvrir;
+      if (o) {
+        const doc = (trouver(choix).docs || []).find(x => x.id === o);
+        if (doc) window.open(URL.createObjectURL(versBlob(doc.data)), "_blank");
+        return;
+      }
+      const a = e.target.closest("[data-id]");
+      if (a) ouvrir(a.dataset.id);
+    });
+
+    $("vueFamille").addEventListener("click", function (e) {
+      const a = e.target.closest("[data-id]");
+      if (a) ouvrir(a.dataset.id);
+    });
+
+    $("entete").addEventListener("change", function (e) {
+      if (e.target.id === "etiqSel" && e.target.value) {
+        const p = trouver(choix);
+        p.etiquettes = (p.etiquettes || []).concat([e.target.value]);
+        sauvegarder();
+        majFiche();
+      }
+    });
+
+    $("entete").addEventListener("click", function (e) {
+      const i = e.target.dataset.tag;
+      if (i !== undefined) {
+        trouver(choix).etiquettes.splice(+i, 1);
+        sauvegarder();
+        majFiche();
+      }
+    });
+
+    $("vueDocs").addEventListener("change", async function (e) {
+      if (e.target.id === "catDoc") { catDoc = e.target.value; return; }
+      if (e.target.dataset.cat) {
+        const q = trouver(choix);
+        const doc = q && (q.docs || []).find(x => x.id === e.target.dataset.cat);
+        if (doc) { doc.categorie = e.target.value; sauvegarder(); majFiche(); }
+        return;
+      }
+      if (e.target.id !== "fichier") return;
+      const p = trouver(choix);
+      if (!p) return;
+      await ajouterFichiers(p, Array.from(e.target.files), catDoc);
+    });
+
+    $("vueDocs").addEventListener("click", function (e) {
+      const p = trouver(choix);
+      if (!p) return;
+      const t = e.target.dataset, docs = p.docs || [];
+      if (t.ouvrir) {
+        const d = docs.find(x => x.id === t.ouvrir);
+        if (d) window.open(URL.createObjectURL(versBlob(d.data)), "_blank");
+      }
+      if (t.profil) { p.photoId = t.profil; sauvegarder(); majFiche(); }
+      if (t.suppr && confirm("Supprimer ce document ?")) {
+        p.docs = docs.filter(x => x.id !== t.suppr);
+        if (p.photoId === t.suppr) p.photoId = "";
+        sauvegarder();
+        majFiche();
+      }
+    });
+
+    $("vueNotes").addEventListener("click", function (e) {
+      const p = trouver(choix);
+      if (!p) return;
+      if (e.target.id === "ajoutNote") {
+        const texte = $("texteNote").value.trim();
+        if (!texte) return;
+        p.notes = (p.notes || []).concat([{ id: nouvelId(), texte: texte, date: new Date().toLocaleDateString("fr-FR") }]);
+        sauvegarder();
+        majFiche();
+      }
+      const s = e.target.dataset.supprNote;
+      if (s) {
+        p.notes = p.notes.filter(n => n.id !== s);
+        sauvegarder();
+        majFiche();
+      }
+    });
+
+    // ----- Photos ajoutées depuis un événement de la frise -----
+    $("fichierEv").addEventListener("change", async function (e) {
+      const p = trouver(choix);
+      if (p && e.target.files.length) await ajouterFichiers(p, Array.from(e.target.files), catEv);
+      e.target.value = "";
+    });
+
+    // ----- Barre du haut : arbres et recherche -----
+    function actionArbre(e) {
+      const b = e.target.closest("button[data-a]");
+      if (!b) return;
+      const a = b.dataset.a, id = b.dataset.i, dlg = $("dlgArbres");
+      $("menuArbres").hidden = true;
+      if (a === "ouvrir") { changerArbre(id); aller("arbre"); if (dlg.open) dlg.close(); }
+      else if (a === "tous") { listeArbres(); dlg.showModal(); }
+      else if (a === "creer") { if (dlg.open) dlg.close(); creerArbre(); }
+      else if (a === "renommer") renommerArbre(id);
+      else if (a === "exporter") exporterArbre(id);
+      else if (a === "supprimer") supprimerArbre(id);
+      else if (a === "importer") $("impArbre").click();
+      else if (a === "importerGed") { if (dlg.open) dlg.close(); $("impGed").click(); }
+      else if (a === "fermer") dlg.close();
+    }
+    $("menuArbres").addEventListener("click", actionArbre);
+    $("dlgArbres").addEventListener("click", actionArbre);
+    $("btnArbres").addEventListener("click", function () {
+      menuArbres();
+      $("menuArbres").hidden = !$("menuArbres").hidden;
+    });
+    $("renommerArbre").addEventListener("click", function () { renommerArbre(base.courant); });
+    $("impArbre").addEventListener("change", function (e) {
+      if (e.target.files[0]) importerArbre(e.target.files[0]);
+      e.target.value = "";
+    });
+
+    $("impGed").addEventListener("change", function (e) {
+      if (e.target.files.length) importerGedcoms(Array.from(e.target.files));
+      e.target.value = "";
+    });
+    // Glisser-déposer un ou plusieurs fichiers .ged n'importe où sur la page
+    window.addEventListener("dragover", function (e) { e.preventDefault(); });
+    window.addEventListener("drop", function (e) {
+      e.preventDefault();
+      const f = Array.from(e.dataTransfer.files).filter(x => /\.(ged|gedcom)$/i.test(x.name));
+      if (f.length) importerGedcoms(f);
+    });
+
+    $("rech").addEventListener("input", function () {
+      const q = this.value.trim().toLowerCase(), z = $("resRech");
+      if (!q) { z.hidden = true; return; }
+      const l = personnes.filter(p => nomComplet(p).toLowerCase().includes(q)).slice(0, 8);
+      z.innerHTML = l.length
+        ? l.map(p => '<button type="button" data-id="' + p.id + '">' + echapper(nomComplet(p)) + " <small>" + echapper(annees(p)) + "</small></button>").join("")
+        : "<p>Aucun résultat dans cet arbre.</p>";
+      z.hidden = false;
+    });
+    $("resRech").addEventListener("click", function (e) {
+      const b = e.target.closest("[data-id]");
+      if (b) { ouvrir(b.dataset.id); this.hidden = true; $("rech").value = ""; }
+    });
+
+    $("formats").addEventListener("click", function (e) {
+      const v = e.target.dataset.v;
+      if (!v) return;
+      if (v === "imprimer") { window.print(); return; }
+      vue = v;
+      base.vue = v;
+      sauvegarderBase();
+      afficherArbre();
+    });
+
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest(".evAct")) fermerMenus();
+      if (!e.target.closest("#haut .menu")) $("menuArbres").hidden = true;
+      if (!e.target.closest(".recherche")) $("resRech").hidden = true;
+    });
+
+    // ----- Accueil -----
+    $("formRech").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const nom = norm($("rNom").value.trim()), pre = norm($("rPrenom").value.trim()), lieu = norm($("rLieu").value.trim());
+      const z = $("resultats");
+      if (!nom && !pre && !lieu) { z.innerHTML = '<p class="doux">Saisissez au moins un nom, un prénom ou un lieu.</p>'; return; }
+      const res = [];
+      for (const a of base.arbres) for (const p of a.personnes) {
+        if (nom && !norm(p.nom).includes(nom)) continue;
+        if (pre && !norm(p.prenom).includes(pre)) continue;
+        if (lieu && ![p.lieuNaissance, p.lieuDeces, p.lieuMariage, p.lieuDivorce].some(l => norm(l).includes(lieu))) continue;
+        res.push({ p: p, a: a });
+      }
+      z.innerHTML = res.length
+        ? '<p class="doux">' + res.length + " résultat(s)</p><div class=\"grilleRes\">" + res.slice(0, 40).map(x =>
+            ligneP(x.p, x.a.id, [annees(x.p), x.p.lieuNaissance, base.arbres.length > 1 ? "Arbre : " + x.a.nom : ""].filter(Boolean).join(" · "))).join("") + "</div>"
+        : '<p class="doux">Aucune personne trouvée.</p>';
+    });
+
+    $("accueil").addEventListener("click", function (e) {
+      const b = e.target.closest("button");
+      if (!b) return;
+      const d = b.dataset;
+      if (b.classList.contains("carte")) { ouvrirPersonne(base.courant, d.id); return; }
+      if (d.open) { ouvrirPersonne(d.arbre, d.open, d.photo ? "docs" : null); return; }
+      if (d.go) aller("arbre");
+      else if (d.nouveau) { nouvelle(null); aller("arbre", { formulaire: true }); }
+      else if (d.liste) { vue = "liste"; base.vue = "liste"; sauvegarderBase(); aller("arbre"); }
+      else if (d.creer) creerArbre();
+      else if (d.importged) $("impGed").click();
+      else if (d.arbreouvrir) { changerArbre(d.arbreouvrir); aller("arbre"); }
+      else if (d.scroll) $("carrousel").scrollBy({ left: 300 * +d.scroll, behavior: "smooth" });
+    });
+
+    $("logo").addEventListener("click", function () { aller("accueil"); });
+    $("btnAccueil").addEventListener("click", function () { aller("accueil"); });
+
+    // ----- Filtres de la carte -----
+    $("arbre").addEventListener("change", function (e) {
+      const k = e.target.dataset.fc;
+      if (!k) return;
+      filtresCarte[k] = e.target.value;
+      geoBloque = false;
+      majMarqueurs(true);
+    });
+
+    aller("accueil");
+    nouvelle(null);
+  </script>
+  <script>
+    // ===== Sauvegarde cloud (Supabase) — facultative =====
+    // URL et clé publishable (publique) de ton projet Supabase.
+    // La clé anon est publique par conception : la sécurité vient des règles RLS (voir supabase.sql).
+    (function () {
+      const SUPABASE_URL = "https://tivocfxqlfqgwaxozzyo.supabase.co";
+      const SUPABASE_KEY = "sb_publishable_O04GGmPmay9DylTpFLfmjw_Y4_tR2cL";
+      const bouton = document.getElementById("btnCloud");
+      if (!window.supabase || SUPABASE_URL.indexOf("COLLE") === 0) { bouton.hidden = true; return; }
+
+      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const dlg = document.getElementById("dlgCloud"), corps = document.getElementById("cloudCorps");
+      let user = null, minuteur = null, dejaSynchro = null;
+
+      const nbPers = b => (b && b.arbres ? b.arbres.reduce((n, a) => n + (a.personnes || []).length, 0) : 0);
+      const msg = t => { const m = document.getElementById("cloudMsg"); if (m) m.textContent = t; };
+      const etat = t => { bouton.textContent = t; };
+
+      async function pousser() {
+        if (!user) return;
+        etat("☁ Envoi…");
+        const r = await sb.from("arbres").upsert({ user_id: user.id, data: base, updated_at: new Date().toISOString() });
+        etat(r.error ? "☁ Erreur" : "☁ Synchronisé");
+        if (r.error) console.error(r.error);
+        msg(r.error ? "Erreur : " + r.error.message : "Sauvegardé ✔");
+      }
+
+      window.cloudPlanifier = function () {
+        if (!user) return;
+        etat("☁ …");
+        clearTimeout(minuteur);
+        minuteur = setTimeout(pousser, 1500);
+      };
+
+      async function synchroniser() {
+        etat("☁ Synchro…");
+        const r = await sb.from("arbres").select("data").eq("user_id", user.id).maybeSingle();
+        if (r.error) { etat("☁ Erreur"); console.error(r.error); return; }
+        const cloud = r.data && r.data.data;
+        if (cloud) {
+          const plusRecent = (cloud.sync || 0) > (base.sync || 0);
+          const localVide = nbPers(base) === 0 && nbPers(cloud) > 0;
+          if (localVide || (plusRecent && confirm(
+              "Une version plus récente de tes arbres existe dans le cloud.\n\nOK = charger la version du cloud (remplace cet appareil)\nAnnuler = garder cet appareil (écrase le cloud)"))) {
+            localStorage.setItem(CLE3, JSON.stringify(cloud));
+            location.reload();
+            return;
+          }
+        }
+        await pousser();
+      }
+
+      function rendre() {
+        if (user) {
+          corps.innerHTML = '<p>Connecté : <b></b></p>' +
+            '<button type="button" class="action" id="cSave">Sauvegarder maintenant</button>' +
+            '<button type="button" class="action clair" id="cOut">Se déconnecter</button>' +
+            '<p id="cloudMsg"></p>';
+          corps.querySelector("b").textContent = user.email;
+          document.getElementById("cSave").onclick = pousser;
+          document.getElementById("cOut").onclick = async function () { await sb.auth.signOut(); dlg.close(); };
+        } else {
+          corps.innerHTML = '<p class="doux">Connecte-toi pour retrouver tes arbres sur tous tes appareils.</p>' +
+            '<label for="cMail">E-mail</label><input id="cMail" type="email" autocomplete="email">' +
+            '<label for="cPass">Mot de passe (6 caractères min.)</label><input id="cPass" type="password" autocomplete="current-password">' +
+            '<button type="button" class="action" id="cIn">Se connecter</button>' +
+            '<button type="button" class="action clair" id="cNew">Créer un compte</button>' +
+            '<p id="cloudMsg"></p>';
+          const go = async function (creer) {
+            const email = document.getElementById("cMail").value.trim(), password = document.getElementById("cPass").value;
+            if (!email || !password) { msg("Renseigne l'e-mail et le mot de passe."); return; }
+            msg("…");
+            const r = creer ? await sb.auth.signUp({ email: email, password: password })
+                            : await sb.auth.signInWithPassword({ email: email, password: password });
+            if (r.error) { msg(r.error.message); return; }
+            if (creer && !r.data.session) msg("Compte créé. Confirme ton e-mail, puis reviens te connecter.");
+            else dlg.close();
+          };
+          document.getElementById("cIn").onclick = function () { go(false); };
+          document.getElementById("cNew").onclick = function () { go(true); };
+        }
+      }
+
+      bouton.addEventListener("click", function () { rendre(); dlg.showModal(); });
+      document.getElementById("cloudFermer").addEventListener("click", function () { dlg.close(); });
+
+      sb.auth.onAuthStateChange(function (evt, session) {
+        user = session ? session.user : null;
+        if (!user) { dejaSynchro = null; etat("☁ Connexion"); return; }
+        etat("☁ " + (user.email || "Connecté").split("@")[0]);
+        if (dejaSynchro !== user.id) { dejaSynchro = user.id; setTimeout(synchroniser, 0); }
+      });
+    })();
+  </script>
+</body>
+</html>
