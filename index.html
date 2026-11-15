@@ -441,6 +441,93 @@
     #dlgOutilCorps input[type=search], #dlgOutilCorps input[type=text] { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid #d9d0ea; border-radius: 8px; }
     #dlgOutilCorps .ligneP { margin-top: 6px; }
     #dlgOutilCorps h3 { margin: 16px 0 6px; font-size: 15px; color: var(--indigo); }
+
+    /* ----- Démarches (actes demandés) ----- */
+    /* Date approximative : [Vers ▾] [1880] (et [1890]) */
+    .dateQ { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    #fiche .dateQ select.dateQual, .union .dateQ select.dateQual { width: auto; flex: none; padding: 7px 2px; font-size: 13px; }
+    .dateQ input { flex: 1 1 70px; min-width: 70px; }
+    #fiche .deux:has(.dateQ), .union .deux:has(.dateQ) { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+    .dateQ .dateEt { flex: none; font-size: 13px; color: #7a6f92; }
+    .dateQ [hidden] { display: none !important; }
+    /* Suggestions de communes */
+    #suggLieux { position: fixed; z-index: 3000; background: #fff; border: 1px solid #d9d0ea; border-radius: 10px; box-shadow: 0 8px 24px rgba(60, 40, 110, .22); max-height: 300px; overflow: auto; padding: 4px; }
+    #suggLieux[hidden] { display: none; }
+    .suggItem { padding: 7px 10px; border-radius: 8px; cursor: pointer; }
+    .suggItem b { display: block; font-size: 14px; font-weight: 600; color: #2f2547; }
+    .suggItem small { display: block; font-size: 12px; color: #8a7fa3; }
+    .suggItem:hover, .suggItem.actif { background: #f1ebfb; }
+    .suggVide { padding: 8px 10px; font-size: 13px; color: #8a7fa3; }
+    #dlgOutilCorps .demRech { margin-top: 14px; }
+    .demAide { font-weight: 400; font-size: 12px; min-height: 1em; }
+    .demLibre { font-size: 13px; color: #4a3f66; }
+    .demPuces { display: flex; flex-wrap: wrap; gap: 6px; }
+    .demPuces button { font: inherit; font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 20px; border: 1px solid #e3daf3; background: #fff; color: var(--c); cursor: pointer; }
+    .demPuces button b { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 6px; border-radius: 10px; background: #f3eff9; color: #4a3f66; font-size: 12px; }
+    .demPuces button.actif { background: var(--c); color: #fff; border-color: var(--c); }
+    .demPuces button.actif b { background: rgba(255,255,255,.25); color: #fff; }
+    .demForm { background: #faf7ff; border: 1px solid #e6def4; border-radius: 12px; padding: 12px 14px; }
+    .demGrille { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+    .demGrille label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: #4a3f66; min-width: 0; }
+    .demGrille .demLarge { grid-column: 1 / -1; }
+    .demGrille input, .demGrille select { font: inherit; font-weight: 400; font-size: 14px; padding: 7px 9px; border: 1px solid #d9d0ea; border-radius: 8px; background: #fff; width: 100%; box-sizing: border-box; }
+    .demForm button.action { margin: 12px 8px 0 0; }
+    .demLigne { display: grid; grid-template-columns: minmax(0, 1fr) 210px auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid #ece6f3; border-radius: 12px; margin-top: 8px; }
+    .demLigne.relance { border-color: #f1c9c2; background: #fff8f6; }
+    .demQui { display: flex; flex-direction: column; min-width: 0; }
+    .demQui b { font-size: 15px; }
+    .demQui small { overflow-wrap: anywhere; }
+    .demNote { color: #5b5170; font-style: italic; }
+    .demPers { align-self: flex-start; font: inherit; font-size: 13px; border: 0; background: none; padding: 0; color: var(--violet); cursor: pointer; text-decoration: underline; }
+    .demEtat { display: flex; flex-direction: column; gap: 4px; }
+    .demEtat select { font: inherit; font-size: 13px; font-weight: 700; padding: 5px 8px; border: 2px solid; border-radius: 8px; background: #fff; }
+    .demRel { color: #c0392b; }
+    .demAct { white-space: nowrap; }
+    .demFiche { border: 1px solid #e6def4; background: #faf7ff; border-radius: 12px; padding: 8px 12px; margin-bottom: 12px; }
+    .demFicheTete { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .demFiche ul { list-style: none; margin: 6px 0 0; padding: 0; font-size: 14px; }
+    .demFiche li { padding: 2px 0; }
+    .demPastille { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+    @media (max-width: 700px) {
+      .demLigne { grid-template-columns: 1fr; }
+      .demAct .pBtn { margin: 0 6px 0 0; }
+    }
+    .lecture [data-o="demarches"], .lecture .demFiche, .lecture [data-o="verifier"] { display: none !important; }
+
+    /* ----- Vérification de l'arbre ----- */
+    .vListe { margin-top: 12px; }
+    .vItem { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid #ece6f3; border-left: 4px solid; border-radius: 10px; margin-top: 8px; }
+    .vItem.v-err { border-left-color: #c0392b; background: #fff8f7; }
+    .vItem.v-warn { border-left-color: #d98a1c; background: #fffbf3; }
+    .vItem.v-info { border-left-color: #6c58b8; }
+    .vIcone { flex: none; font-size: 16px; line-height: 1.4; }
+    .vCorps { flex: 1; min-width: 0; }
+    .vCorps p { margin: 2px 0 4px; font-size: 14px; overflow-wrap: anywhere; }
+    .vCat { text-transform: uppercase; letter-spacing: .05em; font-size: 11px; font-weight: 700; color: #8a7fa3; }
+    .vPers { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 4px; }
+    .vActions .pBtn, .vPropo .pBtn { margin: 4px 6px 0 0; }
+    .vPropo small { display: block; margin-top: 6px; }
+    .vCoches { display: flex; flex-direction: column; gap: 2px; margin: 4px 0; max-height: 260px; overflow: auto; }
+    .vCoches label { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+    #fiche label.caseDeces { display: flex; align-items: center; gap: 8px; font-weight: 400; margin-top: 10px; cursor: pointer; }
+    #fiche label.caseDeces input { width: auto; }
+    .vOk { font-size: 16px; font-weight: 600; color: #2e9a5e; }
+    .vIgn { margin-top: 14px; }
+    /* Fusion de deux fiches */
+    .fTable { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 14px; margin: 8px 0; }
+    .fTable thead th { text-align: left; vertical-align: bottom; font-weight: 400; font-size: 12px; color: #8a7fa3; padding: 4px 8px; }
+    .fTable thead b { display: block; font-size: 15px; color: #2f2547; }
+    .fTable thead small { display: block; }
+    .fTable tbody th { text-align: left; font-size: 13px; color: #5b5170; font-weight: 600; padding: 6px 8px; width: 24%; vertical-align: top; }
+    .fTable td { padding: 6px 8px; border-radius: 8px; vertical-align: top; width: 38%; overflow-wrap: anywhere; }
+    .fTable td label { display: flex; gap: 6px; align-items: flex-start; cursor: pointer; }
+    .fTable td input { margin-top: 3px; }
+    .fTable .fChoisi { background: #eefaf3; outline: 1px solid #bfe6cf; }
+    .fTable .fEcarte { color: #9a90b0; text-decoration: line-through; }
+    .fTable .fIdem { color: #5b5170; }
+    .fAvert { font-size: 13px; color: #a0522d; background: #fff6ec; border-radius: 8px; padding: 8px 10px; }
+    @media (max-width: 640px) { .fTable tbody th { width: auto; } .fTable { font-size: 13px; } }
+    .lienBtn { font: inherit; border: 0; background: none; padding: 0; color: var(--violet); text-decoration: underline; cursor: pointer; }
     .pick { margin-bottom: 14px; }
     .pick label { display: block; font-weight: 700; margin-bottom: 4px; }
     .pickSel { margin-top: 6px; padding: 8px; background: #f6f1fb; border-radius: 8px; min-height: 20px; }
@@ -622,6 +709,8 @@
         <button type="button" data-o="parente"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M11 8.3L7 15.7M13 8.3l4 7.4"/></svg>Parenté</button>
         <button type="button" data-o="imprimer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3"/><rect x="7" y="14" width="10" height="7"/></svg>Imprimer</button>
         <button type="button" data-o="listes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>Listes</button>
+        <button type="button" data-o="verifier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Vérifier</button>
+        <button type="button" data-o="demarches"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 8l9 6 9-6"/></svg>Démarches</button>
         <button type="button" data-o="reglages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Réglages</button>
       </div>
       <div id="formats" role="toolbar" aria-label="Format d’affichage"></div>
@@ -676,11 +765,11 @@
           <div class="deux">
             <div>
               <label for="naissance">Date</label>
-              <input id="naissance" placeholder="12/03/1950 ou 1950">
+              <input id="naissance" placeholder="12/03/1950 ou 1950" data-date autocomplete="off">
             </div>
             <div>
               <label for="lieuNaissance">Lieu</label>
-              <input id="lieuNaissance" placeholder="Périgueux">
+              <input id="lieuNaissance" placeholder="Tapez une commune…" data-lieu autocomplete="off">
             </div>
           </div>
         </div>
@@ -690,13 +779,14 @@
           <div class="deux">
             <div>
               <label for="deces">Date</label>
-              <input id="deces">
+              <input id="deces" placeholder="12/03/1950 ou 1950" data-date autocomplete="off">
             </div>
             <div>
               <label for="lieuDeces">Lieu</label>
-              <input id="lieuDeces">
+              <input id="lieuDeces" placeholder="Tapez une commune…" data-lieu autocomplete="off">
             </div>
           </div>
+          <label class="caseDeces"><input type="checkbox" id="decede"> Décédé(e), date inconnue</label>
         </div>
 
         <div class="groupe">
@@ -714,21 +804,21 @@
           <div class="deux">
             <div>
               <label for="mariage">Date du mariage</label>
-              <input id="mariage">
+              <input id="mariage" placeholder="12/03/1950 ou 1950" data-date autocomplete="off">
             </div>
             <div>
               <label for="lieuMariage">Lieu</label>
-              <input id="lieuMariage">
+              <input id="lieuMariage" placeholder="Tapez une commune…" data-lieu autocomplete="off">
             </div>
           </div>
           <div class="deux">
             <div>
               <label for="divorce">Date du divorce (si divorcés)</label>
-              <input id="divorce">
+              <input id="divorce" placeholder="12/03/1950 ou 1950" data-date autocomplete="off">
             </div>
             <div>
               <label for="lieuDivorce">Lieu</label>
-              <input id="lieuDivorce">
+              <input id="lieuDivorce" placeholder="Tapez une commune…" data-lieu autocomplete="off">
             </div>
           </div>
           <h3>Autres unions</h3>
@@ -909,17 +999,20 @@
     }
     const lienNom = p => '<a data-id="' + p.id + '">' + echapper(nomComplet(p)) + "</a>";
 
+    // Décédé(e) : une date ou un lieu de décès, ou la case « décédé(e), date inconnue »
+    const estDecede = p => !!(p.deces || p.lieuDeces || p.decede);
     function annees(p) {
-      const n = annee(p.naissance), d = annee(p.deces);
+      const n = anneeCourte(p.naissance), d = anneeCourte(p.deces) || (estDecede(p) ? "†" : "");
       if (n && d) return n + " - " + d;
-      if (d) return "† " + d;
-      if (n) return (p.sexe === "F" ? "Née" : "Né") + " en " + n;
+      if (d) return d === "†" ? "†" : "† " + d;
+      if (n) return (p.sexe === "F" ? "Née" : "Né") + (/^\d/.test(n) ? " en " : " ") + n;
       return "";
     }
 
     function texte(mot, date, lieu) {
       if (!date && !lieu) return "";
-      return mot + (date ? (/^\d{4}$/.test(date) ? " en " : " le ") + dateLongue(date) : "") + (lieu ? " à " + lieu : "");
+      const q = decouperDate(date).q;
+      return mot + (date ? (q ? " " : /^\d{4}$/.test(date) ? " en " : " le ") + dateLisible(date) : "") + (lieu ? " à " + lieu : "");
     }
 
     function carte(p, ref) {
@@ -1001,7 +1094,9 @@
     function ligneUnion(u) {
       const opts = '<option value="">—</option>' + personnes.filter(p => p.id !== choix).map(p =>
         '<option value="' + p.id + '"' + (p.id === u.avec ? " selected" : "") + ">" + echapper(nomComplet(p)) + "</option>").join("");
-      const champ = (k, lib) => "<div><label>" + lib + '</label><input data-u="' + k + '" value="' + echapper(u[k] || "") + '"></div>';
+      const champ = (k, lib) => "<div><label>" + lib + '</label><input data-u="' + k + '" autocomplete="off"' +
+        (/^lieu/.test(k) ? ' data-lieu placeholder="Tapez une commune…"' : ' data-date placeholder="12/03/1950 ou 1950"') +
+        ' value="' + echapper(u[k] || "") + '"></div>';
       return '<div class="union"><button type="button" class="retirer" data-retirer>Retirer</button>' +
         '<label>Autre conjoint(e) ou compagnon / compagne</label><select data-u="avec">' + opts + "</select>" +
         '<div class="deux">' + champ("mariage", "Date du mariage") + champ("lieuMariage", "Lieu") + "</div>" +
@@ -1010,19 +1105,176 @@
 
     function rendreUnions(p) {
       $("autresUnions").innerHTML = ((p && p.unions) || []).map(ligneUnion).join("");
+      equiperDates($("autresUnions"));
     }
 
     function lireUnions() {
       const vus = new Set(), l = [];
       for (const div of $("autresUnions").querySelectorAll(".union")) {
         const u = {};
-        for (const el of div.querySelectorAll("[data-u]")) u[el.dataset.u] = el.value.trim();
+        for (const el of div.querySelectorAll("[data-u]")) u[el.dataset.u] = el.hasAttribute("data-date") ? lireDate(el) : el.value.trim();
         if (!u.avec || vus.has(u.avec)) continue;
         vus.add(u.avec);
         l.push(u);
       }
       return l;
     }
+
+    // ---------- Dates approximatives : exacte, vers, avant, après, entre … et … ----------
+    // La date reste un simple texte (« vers 1880 », « entre 1850 et 1860 »), comme dans les fichiers GEDCOM importés.
+    const QUALIFS = [["", "Date exacte"], ["vers", "Vers"], ["avant", "Avant"], ["après", "Après"], ["entre", "Entre"]];
+    function decouperDate(t) {
+      t = (t || "").trim();
+      const m = /^(vers|avant|apr[eè]s|entre|de)\s+(.+?)(?:\s+(?:et|à)\s+(.+))?$/i.exec(t);
+      if (!m) return { q: "", d1: t, d2: "" };
+      let q = m[1].toLowerCase().replace("apres", "après");
+      if (q === "de") q = "entre";
+      return { q: q, d1: m[2].trim(), d2: (m[3] || "").trim() };
+    }
+    function composerDate(q, d1, d2) {
+      d1 = (d1 || "").trim(); d2 = (d2 || "").trim();
+      if (!d1 && !d2) return "";
+      if (q === "entre") return d1 && d2 ? "entre " + d1 + " et " + d2 : (d1 ? "après " + d1 : "avant " + d2);
+      return (q ? q + " " : "") + (d1 || d2);
+    }
+    // Ajoute la liste « Date exacte / Vers / Avant / Après / Entre » devant chaque champ date (une seule fois)
+    function equiperDates(racine) {
+      for (const el of (racine || document).querySelectorAll("input[data-date]")) {
+        if (!el.dataset.equipe) {
+          el.dataset.equipe = "1";
+          const boite = document.createElement("span");
+          boite.className = "dateQ";
+          el.parentNode.insertBefore(boite, el);
+          const sel = document.createElement("select");
+          sel.className = "dateQual";
+          sel.setAttribute("aria-label", "Précision de la date");
+          sel.innerHTML = QUALIFS.map(x => '<option value="' + x[0] + '">' + x[1] + "</option>").join("");
+          const et = document.createElement("span"); et.className = "dateEt"; et.textContent = "et";
+          const d2 = document.createElement("input"); d2.className = "dateFin"; d2.autocomplete = "off"; d2.placeholder = "1860";
+          d2.setAttribute("aria-label", "Seconde date");
+          boite.append(sel, el, et, d2);
+          sel.addEventListener("change", () => { majDateQ(el); if (sel.value === "entre" && !d2.value) d2.focus(); else el.focus(); });
+        }
+        rafraichirDate(el);
+      }
+    }
+    const partiesDate = el => { const b = el.parentNode; return { sel: b.querySelector(".dateQual"), d2: b.querySelector(".dateFin"), et: b.querySelector(".dateEt") }; };
+    function majDateQ(el) {
+      const x = partiesDate(el), entre = x.sel && x.sel.value === "entre";
+      if (x.d2) { x.d2.hidden = !entre; x.et.hidden = !entre; }
+      el.placeholder = entre ? "1850" : x.sel && x.sel.value ? "1880" : "12/03/1950 ou 1950";
+    }
+    // Le champ contient le texte complet (rempli par le programme) : on le répartit dans la liste et les deux cases
+    function rafraichirDate(el) {
+      const x = partiesDate(el);
+      if (!x.sel) return;
+      const t = decouperDate(el.value);
+      x.sel.value = t.q; el.value = t.d1; x.d2.value = t.d2;
+      majDateQ(el);
+    }
+    function lireDate(el) {
+      const x = partiesDate(el);
+      return x.sel ? composerDate(x.sel.value, el.value, x.d2.value) : el.value.trim();
+    }
+
+    // Texte lisible : « vers le 12 mars 1880 », « entre 1850 et 1860 »
+    function dateLisible(d) {
+      const t = decouperDate(d);
+      if (!t.q) return dateLongue(t.d1);
+      return t.q + " " + dateLongue(t.d1) + (t.d2 ? " et " + dateLongue(t.d2) : "");
+    }
+    // Année courte pour les cartes : « ~1880 », « av. 1900 », « ap. 1850 »
+    function anneeCourte(d) {
+      const t = decouperDate(d), y = annee(t.d1) || annee(t.d2);
+      if (!y) return "";
+      return t.q === "vers" || t.q === "entre" ? "~" + y : t.q === "avant" ? "av. " + y : t.q === "après" ? "ap. " + y : y;
+    }
+
+    // ---------- Liste déroulante des communes (pour placer les lieux précisément sur la carte) ----------
+    let suggLieu = { el: null, items: [], index: -1, minuteur: null, demande: 0 };
+    const boiteSugg = () => {
+      let b = $("suggLieux");
+      if (!b) { b = document.createElement("div"); b.id = "suggLieux"; b.setAttribute("role", "listbox"); b.hidden = true; document.body.appendChild(b); }
+      return b;
+    };
+    function fermerSugg() { boiteSugg().hidden = true; suggLieu.items = []; suggLieu.index = -1; }
+    function placerSugg() {
+      const b = boiteSugg(), r = suggLieu.el.getBoundingClientRect();
+      const w = Math.min(Math.max(r.width, 300), window.innerWidth - 16);
+      b.style.width = w + "px";
+      b.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + "px";   // reste dans la fenêtre
+      b.style.top = (r.bottom + 4) + "px";
+    }
+    async function chercherCommunes(q) {
+      const res = [];
+      try {
+        const r = await fetch("https://geo.api.gouv.fr/communes?nom=" + encodeURIComponent(q) + "&fields=nom,departement,region,centre,codesPostaux&boost=population&limit=7");
+        if (r.ok) for (const c of await r.json()) {
+          const lib = [c.nom, c.departement && c.departement.nom, c.region && c.region.nom, "France"].filter(Boolean).join(", ");
+          res.push({ lib: lib, sous: (c.codesPostaux && c.codesPostaux[0] ? c.codesPostaux[0] + " · " : "") + (c.departement ? c.departement.nom + " (" + c.departement.code + ")" : ""),
+                     pt: c.centre ? [c.centre.coordinates[1], c.centre.coordinates[0]] : null });
+        }
+      } catch (e) {}
+      if (!res.length && q.length >= 3) {
+        // Rien en France : lieux à l'étranger (ou anciennes communes) via OpenStreetMap
+        try {
+          const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&accept-language=fr&q=" + encodeURIComponent(q));
+          if (r.ok) for (const x of await r.json()) {
+            const a = x.address || {}, ville = a.city || a.town || a.village || a.municipality || a.hamlet || x.name;
+            const lib = [ville, a.county || a.state_district, a.state, a.country].filter(Boolean).filter((v, i, t) => t.indexOf(v) === i).join(", ");
+            if (lib && !res.some(y => y.lib === lib)) res.push({ lib: lib, sous: "Hors de France ou lieu-dit", pt: [+x.lat, +x.lon] });
+          }
+        } catch (e) {}
+      }
+      return res;
+    }
+    function afficherSugg(items) {
+      const b = boiteSugg();
+      suggLieu.items = items; suggLieu.index = -1;
+      if (!items.length) { b.innerHTML = '<div class="suggVide">Aucune commune trouvée : le texte sera gardé tel quel.</div>'; }
+      else b.innerHTML = items.map((x, i) => '<div class="suggItem" role="option" data-i="' + i + '"><b>' + echapper(x.lib) + "</b><small>" + echapper(x.sous) + "</small></div>").join("");
+      placerSugg();
+      b.hidden = false;
+    }
+    function choisirSugg(i) {
+      const x = suggLieu.items[i], el = suggLieu.el;
+      if (!x || !el) return;
+      el.value = x.lib;
+      if (x.pt) { geo[cleLieu(x.lib)] = x.pt; try { localStorage.setItem(CLE_GEO, JSON.stringify(geo)); } catch (e) {} }
+      fermerSugg();
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    document.addEventListener("input", function (e) {
+      const el = e.target;
+      if (!el.matches || !el.matches("input[data-lieu]")) return;
+      suggLieu.el = el;
+      clearTimeout(suggLieu.minuteur);
+      const q = el.value.split(",")[0].trim();   // on cherche sur le nom de la commune
+      if (q.length < 2) { fermerSugg(); return; }
+      suggLieu.minuteur = setTimeout(async () => {
+        const n = ++suggLieu.demande, items = await chercherCommunes(q);
+        if (n === suggLieu.demande && document.activeElement === el) afficherSugg(items);
+      }, 300);
+    });
+    document.addEventListener("keydown", function (e) {
+      const b = $("suggLieux");
+      if (!b || b.hidden || e.target !== suggLieu.el) return;
+      const n = suggLieu.items.length;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (!n) return;
+        e.preventDefault();
+        suggLieu.index = (suggLieu.index + (e.key === "ArrowDown" ? 1 : -1) + n) % n;
+        b.querySelectorAll(".suggItem").forEach((x, i) => x.classList.toggle("actif", i === suggLieu.index));
+      } else if (e.key === "Enter" && suggLieu.index >= 0) { e.preventDefault(); choisirSugg(suggLieu.index); }
+      else if (e.key === "Escape") { fermerSugg(); }
+    });
+    document.addEventListener("mousedown", function (e) {
+      const it = e.target.closest && e.target.closest("#suggLieux .suggItem");
+      if (it) { e.preventDefault(); choisirSugg(+it.dataset.i); return; }
+      if (!e.target.closest || !e.target.closest("#suggLieux")) fermerSugg();
+    });
+    document.addEventListener("focusout", function (e) { if (e.target === suggLieu.el) setTimeout(() => { if (document.activeElement !== suggLieu.el) fermerSugg(); }, 150); });
+    window.addEventListener("scroll", () => { if (suggLieu.el && !boiteSugg().hidden) placerSugg(); }, true);
 
     // Frise des événements de la vie, comme sur Filae
     function afficherEvenements() {
@@ -1033,7 +1285,7 @@
       const pere = p.pere && trouver(p.pere), mere = p.mere && trouver(p.mere);
       const ev = [];
       const nd = c => (p.docs || []).some(d => d.categorie === c);
-      const dl = (date, lieu) => [date ? dateLongue(date) : "", lieu].filter(Boolean).join(", ");
+      const dl = (date, lieu) => [date ? dateLisible(date) : "", lieu].filter(Boolean).join(", ");
       const ajouter = (date, titre, lignes, fort, cat) =>
         ev.push({ an: annee(date), titre: titre, lignes: lignes.filter(Boolean), fort: fort, cat: cat });
 
@@ -1062,20 +1314,20 @@
           [[p.armee, p.grade, p.unite, p.periodeMilitaire, p.matricule ? "Matricule " + p.matricule : ""]
             .filter(Boolean).map(echapper).join(" · ")], false, "Service militaire");
       }
-      if (p.deces || p.lieuDeces || nd("Décès"))
-        ajouter(p.deces, "Décès", [echapper(dl(p.deces, p.lieuDeces))], true, "Décès");
+      if (p.deces || p.lieuDeces || p.decede || nd("Décès"))
+        ajouter(p.deces, "Décès", [p.deces || p.lieuDeces ? echapper(dl(p.deces, p.lieuDeces)) : p.decede ? "Date inconnue" : ""], true, "Décès");
       for (const [q, mot] of [[pere, "son père"], [mere, "sa mère"]]) {
         if (q && q.deces) ajouter(q.deces, "Décès de " + mot + " " + lienNom(q), [echapper(dl(q.deces, q.lieuDeces))]);
       }
 
       ev.sort((a, b) => (+a.an || 9999) - (+b.an || 9999));
       const nais = +annee(p.naissance);
-      zone.innerHTML = ev.length ? ev.map(e => {
+      zone.innerHTML = (LECTURE ? "" : blocDemarches(p)) + (ev.length ? ev.map(e => {
         const age = nais && e.an && e.an - nais > 0 ? "<small>" + (e.an - nais) + " ans</small>" : "";
         return '<div class="ev' + (e.fort ? " fort" : "") + '"><div class="an">' + (e.an || "") + age +
           '</div><div class="pt"></div><div class="corps"><b>' + e.titre + "</b>" +
           e.lignes.map(l => "<span>" + l + "</span>").join("") + (e.cat ? vignettes(p, e.cat) + actionsEv(p, e.cat) : "") + "</div></div>";
-      }).join("") : '<p class="doux">Aucun événement pour l’instant. Cliquez sur « Modifier » pour compléter la fiche.</p>';
+      }).join("") : '<p class="doux">Aucun événement pour l’instant. Cliquez sur « Modifier » pour compléter la fiche.</p>');
     }
 
     const ETIQUETTES = ["À compléter", "Hypothèse", "Impasse", "Complet", "Parents inconnus",
@@ -1455,6 +1707,684 @@
         (inc.length ? inc.slice(0, 100).map(x => ligneP(x.p, base.courant, "Manque : " + x.m.join(", "))).join("") + (inc.length > 100 ? '<p class="doux">… et ' + (inc.length - 100) + " autres.</p>" : "") : '<p class="doux">Toutes les fiches sont complètes.</p>'));
     }
 
+    // ---------- Démarches : actes à demander / demandés / reçus (privé, jamais partagé) ----------
+    const ACTES = ["Acte de naissance", "Acte de mariage", "Acte de décès", "Acte de baptême", "Acte d’inhumation",
+      "Recensement", "Registre matricule (militaire)", "Acte notarié / testament", "Autre document"];
+    const MOYENS = ["Courrier", "E-mail", "Site en ligne", "Sur place", "Téléphone", "Autre"];
+    const STATUTS = [
+      ["a_demander", "À demander", "#8a7fa3"], ["demandee", "Demandée", "#d98a1c"],
+      ["recue", "Reçue", "#2e9a5e"], ["introuvable", "Introuvable / refus", "#b0365f"]];
+    const libStatut = s => (STATUTS.find(x => x[0] === s) || STATUTS[0])[1];
+    const coulStatut = s => (STATUTS.find(x => x[0] === s) || STATUTS[0])[2];
+    const RELANCE_JOURS = 30;   // une demande sans réponse depuis plus longtemps est signalée « à relancer »
+    let demFiltre = "tous", demEdition = null;
+
+    const demandes = () => { const a = arbreCourant(); return a.demandes || (a.demandes = []); };
+    const demandesDe = id => demandes().filter(d => d.personne === id);
+    const aujourdhui = () => new Date().toISOString().slice(0, 10);
+    const dateCourte = iso => iso ? new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "";
+    const joursDepuis = iso => iso ? Math.floor((Date.now() - new Date(iso + "T12:00:00").getTime()) / 86400000) : 0;
+    const aRelancer = d => d.statut === "demandee" && joursDepuis(d.dateDemande) > RELANCE_JOURS;
+
+    // Personne tapée à la main : reconnue si elle est dans l'arbre (« Prénom NOM (années) » ou juste « Prénom NOM »)
+    const libellePers = p => nomComplet(p) + (annees(p) ? " (" + annees(p) + ")" : "");
+    function personneDepuisTexte(t) {
+      const n = norm((t || "").trim());
+      if (!n) return null;
+      return personnes.find(p => norm(libellePers(p)) === n) || personnes.find(p => norm(nomComplet(p)) === n) || null;
+    }
+    function aideFormPersonne(form) {
+      const t = form.elements.personneNom.value.trim(), p = personneDepuisTexte(t), z = form.querySelector("#demAide");
+      if (z) z.textContent = !t ? "" : p ? "✔ Dans ton arbre" : "Pas dans l’arbre : le nom sera noté tel quel";
+      return p;
+    }
+
+    // Organisme proposé selon l'acte et les lieux de la fiche (ex. « Mairie d'Évreux »)
+    function organismePropose(p, acte) {
+      if (!p) return "";
+      const lieu = /mariage/i.test(acte) ? p.lieuMariage : /décès|inhumation/i.test(acte) ? p.lieuDeces : p.lieuNaissance;
+      const ville = (lieu || "").split(",")[0].trim();
+      if (/matricule|recensement/i.test(acte)) return ville ? "Archives départementales (" + ville + ")" : "Archives départementales";
+      if (!ville) return "";
+      // « Mairie d’Évreux », « Mairie du Havre », « Mairie des Andelys », « Mairie de Rouen »
+      if (/^le\s/i.test(ville)) return "Mairie du " + ville.slice(3);
+      if (/^les\s/i.test(ville)) return "Mairie des " + ville.slice(4);
+      return (/^[aeiouyàâäéèêëîïôöûü]/i.test(ville) ? "Mairie d’" : "Mairie de ") + ville;
+    }
+
+    function formDemande(d) {
+      const opts = (liste, cur) => liste.map(v => '<option' + (v === cur ? " selected" : "") + ">" + echapper(v) + "</option>").join("");
+      const pers = personnes.slice().sort((a, b) => nomComplet(a).localeCompare(nomComplet(b), "fr"));
+      const p0 = d.personne && trouver(d.personne);
+      return '<form id="demForm" class="demForm" autocomplete="off">' +
+        '<div class="demGrille">' +
+        '<label>Personne (tape le prénom ou le nom)<input name="personneNom" list="demPersonnes" required maxlength="120" placeholder="ex. Marie Haas"' +
+          ' value="' + echapper(p0 ? libellePers(p0) : d.nomLibre || "") + '"><small class="demAide doux" id="demAide"></small></label>' +
+        '<datalist id="demPersonnes">' + pers.map(p => '<option value="' + echapper(libellePers(p)) + '"></option>').join("") + "</datalist>" +
+        '<label>Document<select name="acte">' + opts(ACTES, d.acte) + "</select></label>" +
+        '<label>Organisme ou lieu<input name="organisme" maxlength="120" placeholder="ex. Mairie d’Évreux, AD de l’Eure" data-auto="' + (d.id ? "0" : "1") + '" value="' + echapper(d.organisme || "") + '"></label>' +
+        '<label>Moyen<select name="moyen">' + opts(MOYENS, d.moyen) + "</select></label>" +
+        '<label>Statut<select name="statut">' + STATUTS.map(s => '<option value="' + s[0] + '"' + (s[0] === d.statut ? " selected" : "") + ">" + s[1] + "</option>").join("") + "</select></label>" +
+        '<label>Demandé le<input type="date" name="dateDemande" value="' + echapper(d.dateDemande || "") + '"></label>' +
+        '<label>Reçu le<input type="date" name="dateRecu" value="' + echapper(d.dateRecu || "") + '"></label>' +
+        '<label class="demLarge">Note (référence, n° de suivi, coût, adresse…)<input name="note" maxlength="300" value="' + echapper(d.note || "") + '"></label>' +
+        "</div>" +
+        '<button type="submit" class="action">' + (d.id ? "Enregistrer" : "Ajouter la demande") + "</button>" +
+        (d.id ? '<button type="button" class="action clair" data-dem-annuler>Annuler</button>' : "") +
+        "</form>";
+    }
+
+    const PUCES_DEM = () => [["tous", "Toutes", "#7b66c6"]].concat(STATUTS).concat([["relance", "À relancer", "#c0392b"]]);
+    let demRecherche = "";
+
+    // Liste filtrée par statut et par la recherche (nom, document, organisme, note)
+    function htmlListeDem() {
+      const liste = demandes(), q = norm(demRecherche.trim());
+      const texteDe = d => { const p = trouver(d.personne); return norm([p ? nomComplet(p) : d.nomLibre, d.acte, d.organisme, d.moyen, d.note].filter(Boolean).join(" ")); };
+      const filtree = liste.filter(d => (demFiltre === "tous" || (demFiltre === "relance" ? aRelancer(d) : d.statut === demFiltre)) &&
+          (!q || q.split(/\s+/).every(m => texteDe(d).includes(m))))
+        .sort((a, b) => ((a.statut === "recue") - (b.statut === "recue")) || (b.dateDemande || b.cree || "").localeCompare(a.dateDemande || a.cree || ""));
+      const ligne = d => {
+        const p = trouver(d.personne);
+        const quand = d.statut === "recue" ? (d.dateRecu ? "Reçu le " + dateCourte(d.dateRecu) : "Reçu")
+          : d.statut === "demandee" ? (d.dateDemande ? "Demandé le " + dateCourte(d.dateDemande) + " · il y a " + joursDepuis(d.dateDemande) + " j" : "Demandé")
+          : d.statut === "introuvable" ? (d.dateRecu ? "Réponse le " + dateCourte(d.dateRecu) : "") : "Pas encore demandé";
+        return '<div class="demLigne' + (aRelancer(d) ? " relance" : "") + '" data-dem="' + d.id + '">' +
+          '<div class="demQui">' + (p ? '<button type="button" class="demPers" data-cible="' + p.id + '">' + echapper(nomComplet(p)) + "</button>"
+            : d.nomLibre ? '<span class="demLibre">' + echapper(d.nomLibre) + ' <small class="doux">(pas dans l’arbre)</small></span>'
+            : '<span class="doux">(personne supprimée)</span>') +
+            "<b>" + echapper(d.acte) + "</b>" +
+            '<small class="doux">' + echapper([d.organisme, d.moyen].filter(Boolean).join(" · ")) + "</small>" +
+            (d.note ? '<small class="demNote">' + echapper(d.note) + "</small>" : "") + "</div>" +
+          '<div class="demEtat"><select data-dem-statut aria-label="Statut" style="border-color:' + coulStatut(d.statut) + ";color:" + coulStatut(d.statut) + '">' +
+            STATUTS.map(s => '<option value="' + s[0] + '"' + (s[0] === d.statut ? " selected" : "") + ">" + s[1] + "</option>").join("") + "</select>" +
+            '<small class="doux">' + echapper(quand) + (aRelancer(d) ? ' · <b class="demRel">à relancer</b>' : "") + "</small></div>" +
+          '<div class="demAct"><button type="button" class="pBtn" data-dem-modif>Modifier</button><button type="button" class="pBtn danger" data-dem-suppr>Supprimer</button></div>' +
+          "</div>";
+      };
+      return "<h3>" + (demFiltre === "tous" ? "Toutes les demandes" : PUCES_DEM().find(s => s[0] === demFiltre)[1]) + " (" + filtree.length + ")</h3>" +
+        (filtree.length ? filtree.map(ligne).join("") : '<p class="doux">' +
+          (!liste.length ? "Aucune démarche pour l’instant. Ajoute ta première demande d’acte." : q ? "Aucune demande ne correspond à ta recherche." : "Aucune demande dans cette catégorie.") + "</p>");
+    }
+
+    function dlgDemarches(pourId) {
+      const liste = demandes();
+      if (pourId) demEdition = { personne: pourId, acte: ACTES[0], moyen: MOYENS[0], statut: "a_demander", organisme: organismePropose(trouver(pourId), ACTES[0]) };
+      const compte = s => liste.filter(d => s === "tous" || (s === "relance" ? aRelancer(d) : d.statut === s)).length;
+      ouvrirDlg("Démarches : actes demandés",
+        '<div id="demarches">' +
+        '<div class="demPuces">' + PUCES_DEM().map(s => '<button type="button" data-dem-filtre="' + s[0] + '" class="' + (demFiltre === s[0] ? "actif" : "") + '" style="--c:' + s[2] + '">' +
+          s[1] + " <b>" + compte(s[0]) + "</b></button>").join("") + "</div>" +
+        (demEdition ? "<h3>" + (demEdition.id ? "Modifier la demande" : "Nouvelle demande") + "</h3>" + formDemande(demEdition)
+                    : '<button type="button" class="action" data-dem-nouvelle>+ Nouvelle demande</button>') +
+        (liste.length ? '<input type="search" id="demRech" class="demRech" placeholder="Rechercher un prénom, un nom, un acte, une mairie…" aria-label="Rechercher dans les démarches" value="' + echapper(demRecherche) + '">' : "") +
+        '<div id="demListe">' + htmlListeDem() + "</div>" +
+        "</div>");
+      const f = $("demForm");
+      if (f) { aideFormPersonne(f); (pourId ? f.elements.organisme : f.elements.personneNom).focus(); }
+    }
+
+    function enregistrerDemande(form) {
+      const v = k => form.elements[k].value.trim();
+      const texte = v("personneNom");
+      if (!texte) { form.elements.personneNom.focus(); return; }
+      const d = demEdition && demEdition.id ? demandes().find(x => x.id === demEdition.id) : { id: nouvelId(), cree: aujourdhui() };
+      if (!d) return;
+      const p = personneDepuisTexte(texte);
+      d.personne = p ? p.id : "";
+      d.nomLibre = p ? "" : texte.slice(0, 120);   // personne pas (encore) dans l'arbre
+      for (const k of ["acte", "organisme", "moyen", "statut", "dateDemande", "dateRecu", "note"]) d[k] = v(k);
+      if (d.statut === "demandee" && !d.dateDemande) d.dateDemande = aujourdhui();
+      if ((d.statut === "recue" || d.statut === "introuvable") && !d.dateRecu) d.dateRecu = aujourdhui();
+      if (!demandes().includes(d)) demandes().push(d);
+      demEdition = null;
+      sauvegarder();
+      dlgDemarches();
+      afficherEvenements();
+    }
+
+    // Dès que l'on tape soi-même un organisme, il n'est plus remplacé automatiquement
+    $("dlgOutil").addEventListener("input", function (e) {
+      if (e.target.id === "demRech") { demRecherche = e.target.value; $("demListe").innerHTML = htmlListeDem(); return; }
+      const form = e.target.closest("#demForm");
+      if (!form) return;
+      if (e.target.name === "organisme") { e.target.dataset.auto = "0"; return; }
+      if (e.target.name === "personneNom") {
+        // Au fil de la frappe : indique si la personne est dans l'arbre et propose sa mairie
+        const p = aideFormPersonne(form), org = form.elements.organisme;
+        if (!org.value.trim() || org.dataset.auto === "1") { org.value = p ? organismePropose(p, form.elements.acte.value) : ""; org.dataset.auto = "1"; }
+      }
+    });
+    $("dlgOutil").addEventListener("submit", function (e) {
+      if (e.target.id !== "demForm") return;
+      e.preventDefault();
+      enregistrerDemande(e.target);
+    });
+    $("dlgOutil").addEventListener("click", function (e) {
+      if (!e.target.closest("#demarches")) return;
+      const t = e.target.closest("button");
+      if (!t) return;
+      const ligne = t.closest("[data-dem]"), d = ligne && demandes().find(x => x.id === ligne.dataset.dem);
+      if (t.dataset.demFiltre) { demFiltre = t.dataset.demFiltre; dlgDemarches(); }
+      else if (t.hasAttribute("data-dem-nouvelle")) { demEdition = { acte: ACTES[0], moyen: MOYENS[0], statut: "a_demander", personne: "" }; dlgDemarches(); }
+      else if (t.hasAttribute("data-dem-annuler")) { demEdition = null; dlgDemarches(); }
+      else if (t.hasAttribute("data-dem-modif") && d) { demEdition = Object.assign({}, d); dlgDemarches(); $("dlgOutilCorps").scrollTop = 0; }
+      else if (t.hasAttribute("data-dem-suppr") && d) {
+        if (!confirm("Supprimer cette demande (" + d.acte + ") ?")) return;
+        arbreCourant().demandes = demandes().filter(x => x !== d);
+        sauvegarder(); dlgDemarches(); afficherEvenements();
+      }
+    });
+    $("dlgOutil").addEventListener("change", function (e) {
+      if (!e.target.closest("#demarches")) return;
+      const form = e.target.form;
+      // Formulaire : proposer l'organisme quand on choisit la personne ou le document (sans écraser une saisie)
+      if (form && form.id === "demForm" && (e.target.name === "personneNom" || e.target.name === "acte")) {
+        const org = form.elements.organisme, auto = organismePropose(aideFormPersonne(form), form.elements.acte.value);
+        if (!org.value.trim() || org.dataset.auto === "1") { org.value = auto; org.dataset.auto = "1"; }
+        return;
+      }
+      // Changement rapide du statut depuis la liste
+      if (e.target.hasAttribute("data-dem-statut")) {
+        const d = demandes().find(x => x.id === e.target.closest("[data-dem]").dataset.dem);
+        if (!d) return;
+        d.statut = e.target.value;
+        if (d.statut === "demandee" && !d.dateDemande) d.dateDemande = aujourdhui();
+        if ((d.statut === "recue" || d.statut === "introuvable") && !d.dateRecu) d.dateRecu = aujourdhui();
+        sauvegarder(); dlgDemarches(); afficherEvenements();
+      }
+    });
+
+    // Résumé des démarches en haut de la fiche de la personne
+    function blocDemarches(p) {
+      const l = demandesDe(p.id);
+      const items = l.map(d => '<li><span class="demPastille" style="background:' + coulStatut(d.statut) + '"></span>' + echapper(d.acte) +
+        ' <small class="doux">— ' + echapper(libStatut(d.statut)) + (aRelancer(d) ? ", à relancer" : "") + "</small></li>").join("");
+      return '<div class="demFiche"><div class="demFicheTete"><b>📬 Démarches' + (l.length ? " (" + l.length + ")" : "") + "</b>" +
+        '<button type="button" class="pBtn" data-dem-ouvrir="' + p.id + '">+ Demander un acte</button></div>' +
+        (items ? "<ul>" + items + "</ul>" : "") + "</div>";
+    }
+
+    // ---------- Vérification de l'arbre : erreurs probables et suggestions de corrections ----------
+    // Chaque date devient une fourchette [min, max] en années décimales : « vers 1880 » = 1875-1885,
+    // « avant 1900 » = jusqu'à 1900… On ne signale que ce qui est impossible ou très improbable, même avec la marge.
+    function lireUneDate(t) {
+      t = (t || "").trim();
+      let m;
+      if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{3,4})$/.exec(t))) {
+        const j = +m[1], mo = +m[2], a = +m[3], d = new Date(a, mo - 1, j);
+        if (mo < 1 || mo > 12 || j < 1 || d.getMonth() !== mo - 1) return { erreur: "jour ou mois impossible" };
+        const v = a + (mo - 1) / 12 + (j - 1) / 365.25;
+        return { min: v, max: v, exacte: true };
+      }
+      if ((m = /^(\d{1,2})\/(\d{3,4})$/.exec(t))) {
+        const mo = +m[1], a = +m[2];
+        if (mo < 1 || mo > 12) return { erreur: "mois impossible" };
+        return { min: a + (mo - 1) / 12, max: a + mo / 12 };
+      }
+      if ((m = /^(\d{3,4})$/.exec(t))) return { min: +m[1], max: +m[1] + 0.999 };
+      return { erreur: "format non reconnu" };
+    }
+    function fourchette(d) {
+      if (!d || !d.trim()) return null;
+      const t = decouperDate(d), a = lireUneDate(t.d1);
+      if (a.erreur) return a;
+      if (t.q === "vers") return { min: a.min - 5, max: a.max + 5 };
+      if (t.q === "avant") return { min: -Infinity, max: a.max };
+      if (t.q === "après") return { min: a.min, max: Infinity };
+      if (t.q === "entre") {
+        const b = lireUneDate(t.d2);
+        if (b.erreur) return b;
+        if (b.max < a.min) return { erreur: "la 2e date est avant la 1re" };
+        return { min: a.min, max: b.max };
+      }
+      return a;
+    }
+    const maintenant = () => { const n = new Date(); return n.getFullYear() + n.getMonth() / 12 + (n.getDate() - 1) / 365.25; };
+    const ans = x => Math.floor(x);
+    const ne = p => p.sexe === "F" ? "née" : p.sexe === "H" ? "né" : "né(e)";
+
+    // Majuscules propres : « saint-malo » / « SAINT-MALO » → « Saint-Malo », particules en minuscules
+    const PARTICULES = ["de", "du", "des", "la", "le", "les", "sur", "sous", "en", "lès", "lez", "d", "l", "et", "aux", "au"];
+    function majusculesPropres(t) {
+      let i = 0;
+      return t.toLowerCase().replace(/[^\s\-',]+/g, w => (i++ > 0 && PARTICULES.includes(w)) ? w : w.charAt(0).toUpperCase() + w.slice(1));
+    }
+    const malEcrit = t => { const l = t.replace(/[^a-zà-ÿ]/gi, ""); return l.length > 2 && (l === l.toLowerCase() || l === l.toUpperCase()); };
+
+    // Tous les endroits où un lieu est utilisé (pour compter et remplacer partout)
+    const CHAMPS_LIEU = ["lieuNaissance", "lieuDeces", "lieuMariage", "lieuDivorce"];
+    function usagesLieux() {
+      const m = new Map();
+      const noter = (v, p) => { v = (v || "").trim(); if (!v) return; if (!m.has(v)) m.set(v, new Set()); m.get(v).add(p.id); };
+      for (const p of personnes) {
+        for (const k of CHAMPS_LIEU) noter(p[k], p);
+        for (const u of p.unions || []) { noter(u.lieuMariage, p); noter(u.lieuDivorce, p); }
+      }
+      return m;
+    }
+    function remplacerLieuPartout(ancien, nouveau) {
+      let n = 0;
+      const r = (o, k) => { if ((o[k] || "").trim() === ancien) { o[k] = nouveau; n++; } };
+      for (const p of personnes) {
+        for (const k of CHAMPS_LIEU) r(p, k);
+        for (const u of p.unions || []) { r(u, "lieuMariage"); r(u, "lieuDivorce"); }
+      }
+      return n;
+    }
+
+    function verifierArbre() {
+      const l = [], now = maintenant();
+      // niv : "err" (erreur certaine), "warn" (à vérifier), "info" (conseil)
+      const ajout = (niv, cat, cle, ids, msg, fix) => l.push({ niv: niv, cat: cat, cle: cle, ids: ids, msg: msg, fix: fix || null });
+      const F = {};
+      const CH_DATES = [["naissance", "naissance"], ["deces", "décès"], ["mariage", "mariage"], ["divorce", "divorce"]];
+
+      // 1) Dates illisibles ou dans le futur
+      for (const p of personnes) {
+        F[p.id] = { n: null, d: null };
+        const dates = CH_DATES.map(([k, lib]) => [p[k], lib]);
+        for (const u of p.unions || []) dates.push([u.mariage, "mariage"], [u.divorce, "divorce"]);
+        for (const [v, lib] of dates) {
+          if (!v || !v.trim()) continue;
+          const f = fourchette(v);
+          if (f.erreur) ajout("err", "Dates", "fmt|" + p.id + "|" + v, [p.id], "Date de " + lib + " « " + v + " » incorrecte (" + f.erreur + "). Formats acceptés : 12/03/1950, 03/1950, 1950, vers 1880, entre 1850 et 1860.");
+          else if (f.min > now) ajout("err", "Dates", "futur|" + p.id + "|" + v, [p.id], "Date de " + lib + " « " + v + " » dans le futur.");
+        }
+        const n = fourchette(p.naissance), d = fourchette(p.deces);
+        F[p.id].n = n && !n.erreur ? n : null;
+        F[p.id].d = d && !d.erreur ? d : null;
+      }
+
+      // 2) Âges : décès avant naissance, trop vieux, probablement décédé
+      for (const p of personnes) {
+        const n = F[p.id].n, d = F[p.id].d;
+        if (n && d) {
+          if (d.max < n.min) ajout("err", "Âges", "decavn|" + p.id, [p.id], "Décès (" + p.deces + ") avant la naissance (" + p.naissance + ").");
+          else if (d.min - n.max > 105) ajout("warn", "Âges", "vieux|" + p.id, [p.id], "Aurait vécu au moins " + ans(d.min - n.max) + " ans : vérifier les dates de naissance et de décès.");
+        }
+      }
+      // Personnes nées il y a plus de 105 ans sans décès : une seule alerte groupée (fréquent pour les ancêtres)
+      const sansDeces = personnes.filter(p => F[p.id].n && !estDecede(p) && now - F[p.id].n.max > 105);
+      if (sansDeces.length) ajout("info", "Âges", "sansdeces|" + sansDeces.length, sansDeces.map(p => p.id),
+        sansDeces.length + " personne" + (sansDeces.length > 1 ? "s nées" : " née") + " il y a plus de 105 ans " + (sansDeces.length > 1 ? "ne sont pas marquées" : "n’est pas marquée") +
+        " comme décédée" + (sansDeces.length > 1 ? "s" : "") + ". Coche celles qui sont décédées, même sans connaître la date :",
+        { type: "decedes", ids: sansDeces.map(p => p.id), lib: "Marquer comme décédé(e)s" });
+
+      // 3) Parents et enfants : âge des parents, enfant né après le décès d'un parent
+      for (const c of personnes) {
+        const nc = F[c.id].n;
+        if (!nc) continue;
+        for (const [k, role] of [["pere", "son père"], ["mere", "sa mère"]]) {
+          const par = c[k] && trouver(c[k]);
+          if (!par) continue;
+          const np = F[par.id].n, dp = F[par.id].d;
+          if (np) {
+            const ageMax = nc.max - np.min, ageMin = nc.min - np.max;
+            if (ageMax < 0) ajout("err", "Parents", "parapres|" + c.id + "|" + par.id, [c.id, par.id], nomComplet(par) + " (" + role.split(" ")[1] + ") serait " + ne(par) + " après son enfant " + nomComplet(c) + ".");
+            else if (ageMax < 13) ajout("err", "Parents", "jeune|" + c.id + "|" + par.id, [c.id, par.id], nomComplet(par) + " avait au plus " + ans(ageMax) + " ans à la naissance de " + nomComplet(c) + " : trop jeune.");
+            else if (ageMax < 15) ajout("warn", "Parents", "jeune|" + c.id + "|" + par.id, [c.id, par.id], nomComplet(par) + " avait environ " + ans(ageMax) + " ans à la naissance de " + nomComplet(c) + " : très jeune, à vérifier.");
+            else if (k === "mere" && ageMin > 52) ajout("err", "Parents", "vieille|" + c.id, [c.id, par.id], nomComplet(par) + " avait au moins " + ans(ageMin) + " ans à la naissance de " + nomComplet(c) + " : trop âgée pour être la mère.");
+            else if (k === "mere" && ageMin > 47) ajout("warn", "Parents", "vieille|" + c.id, [c.id, par.id], nomComplet(par) + " avait au moins " + ans(ageMin) + " ans à la naissance de " + nomComplet(c) + " : à vérifier.");
+            else if (k === "pere" && ageMin > 75) ajout("warn", "Parents", "vieux|" + c.id, [c.id, par.id], nomComplet(par) + " avait au moins " + ans(ageMin) + " ans à la naissance de " + nomComplet(c) + " : à vérifier.");
+          }
+          if (dp) {
+            const marge = k === "pere" ? 0.8 : 0;   // un enfant peut naître jusqu'à ~9 mois après le décès du père
+            if (nc.min > dp.max + marge) ajout("err", "Parents", "posthume|" + c.id + "|" + par.id, [c.id, par.id], nomComplet(c) + " est " + ne(c) + " (" + c.naissance + ") après le décès de " + role + " " + nomComplet(par) + " (" + par.deces + ").");
+          }
+        }
+      }
+
+      // 4) Mariages : trop jeune, avant la naissance, après le décès, divorce avant mariage
+      for (const p of personnes) {
+        const n = F[p.id].n, d = F[p.id].d;
+        for (const u of unionsDe(p)) {
+          const m = fourchette(u.mariage), dv = fourchette(u.divorce);
+          const avec = " avec " + nomComplet(u.q);
+          if (m && !m.erreur) {
+            if (n && m.max < n.min) ajout("err", "Mariages", "marav|" + p.id + "|" + u.q.id, [p.id], "Mariage" + avec + " (" + u.mariage + ") avant la naissance de " + nomComplet(p) + ".");
+            else if (n && m.max - n.min < 14) ajout("warn", "Mariages", "marjeune|" + p.id + "|" + u.q.id, [p.id], nomComplet(p) + " avait au plus " + ans(m.max - n.min) + " ans à son mariage" + avec + " : à vérifier.");
+            if (d && m.min > d.max) ajout("err", "Mariages", "marap|" + p.id + "|" + u.q.id, [p.id], "Mariage" + avec + " (" + u.mariage + ") après le décès de " + nomComplet(p) + " (" + p.deces + ").");
+            if (dv && !dv.erreur && dv.max < m.min && p.id < u.q.id) ajout("err", "Mariages", "divav|" + p.id + "|" + u.q.id, [p.id, u.q.id], "Divorce" + avec + " (" + u.divorce + ") avant le mariage (" + u.mariage + ").");
+          }
+        }
+      }
+
+      // 5) Frères et sœurs nés trop près (même mère, dates exactes, hors jumeaux)
+      const parMere = {};
+      for (const c of personnes) if (c.mere && F[c.id].n && F[c.id].n.exacte) (parMere[c.mere] = parMere[c.mere] || []).push(c);
+      for (const id in parMere) {
+        const f = parMere[id].sort((a, b) => F[a.id].n.min - F[b.id].n.min);
+        for (let i = 1; i < f.length; i++) {
+          const ecart = F[f[i].id].n.min - F[f[i - 1].id].n.min;
+          if (ecart > 0.01 && ecart < 0.7) ajout("warn", "Parents", "rapproche|" + f[i - 1].id + "|" + f[i].id, [f[i - 1].id, f[i].id],
+            nomComplet(f[i - 1]) + " et " + nomComplet(f[i]) + " sont nés à " + Math.round(ecart * 12) + " mois d’écart avec la même mère : à vérifier.");
+        }
+      }
+
+      // 6) Lieux : même lieu écrit de plusieurs façons, majuscules, sans département, introuvable sur la carte
+      const usages = usagesLieux(), parVille = {}, dansVariantes = new Set();
+      for (const [v, ids] of usages) {
+        const ville = cleLieu(v.split(",")[0]);
+        (parVille[ville] = parVille[ville] || []).push({ v: v, ids: ids });
+      }
+      for (const ville in parVille) {
+        const g = parVille[ville];
+        if (g.length < 2) continue;
+        const complets = [...new Set(g.filter(x => x.v.includes(",")).map(x => cleLieu(x.v.split(",").slice(1).join(","))))];
+        if (complets.length > 1) continue;   // homonymes dans des départements différents : on ne touche pas
+        const cible = g.slice().sort((a, b) => (b.v.split(",").length - a.v.split(",").length) || (b.ids.size - a.ids.size))[0].v;
+        const autres = g.filter(x => x.v !== cible);
+        const nb = autres.reduce((s, x) => s + x.ids.size, 0);
+        autres.concat([{ v: cible }]).forEach(x => dansVariantes.add(x.v));
+        ajout("warn", "Lieux", "variante|" + ville, [], "Le même lieu est écrit de " + g.length + " façons : " + g.map(x => "« " + x.v + " » (" + x.ids.size + ")").join(", ") + ".",
+          { type: "remplacer", de: autres.map(x => x.v), vers: cible, lib: "Tout écrire « " + cible + " » (" + nb + " fiche" + (nb > 1 ? "s" : "") + ")" });
+      }
+      for (const [v, ids] of usages) {
+        const n = ids.size + " fiche" + (ids.size > 1 ? "s" : "");
+        const ville = v.split(",")[0].trim();
+        if (geo[cleLieu(v)] === null) { ajout("warn", "Lieux", "introuvable|" + v, [...ids], "Lieu « " + v + " » (" + n + ") introuvable sur la carte : faute de frappe ?", { type: "chercher", lieu: v }); continue; }
+        if (dansVariantes.has(v)) continue;   // déjà couvert par « le même lieu est écrit de plusieurs façons »
+        if (malEcrit(ville)) ajout("info", "Lieux", "maj|" + v, [...ids], "Lieu « " + v + " » (" + n + ") : majuscules à corriger.",
+          { type: "remplacer", de: [v], vers: [majusculesPropres(ville)].concat(v.split(",").slice(1).map(x => x.trim())).join(", "), lib: "Corriger en « " + [majusculesPropres(ville)].concat(v.split(",").slice(1).map(x => x.trim())).join(", ") + " »" });
+        else if (!v.includes(",")) ajout("info", "Lieux", "sansdep|" + v, [...ids], "Lieu « " + v + " » (" + n + ") sans département ni pays : risque de confusion avec une commune du même nom.", { type: "chercher", lieu: v });
+      }
+
+      // 7) Noms : prénom ou nom manquant, minuscules, sexe non renseigné
+      for (const p of personnes) {
+        if (!p.prenom || !p.prenom.trim()) ajout("info", "Noms", "sansprenom|" + p.id, [p.id], nomComplet(p) + " : prénom manquant.");
+        else if (malEcrit(p.prenom) && p.prenom === p.prenom.toLowerCase()) ajout("info", "Noms", "minprenom|" + p.id, [p.id], "Prénom « " + p.prenom + " » en minuscules.",
+          { type: "prenom", id: p.id, vers: majusculesPropres(p.prenom), lib: "Corriger en « " + majusculesPropres(p.prenom) + " »" });
+        if (!p.nom || !p.nom.trim()) ajout("info", "Noms", "sansnom|" + p.id, [p.id], (p.prenom || "Une personne") + " : nom de famille manquant.");
+      }
+
+      // Sexe manquant : on devine d'après le rôle (père ou mère de quelqu'un), sinon d'après les autres porteurs du même prénom
+      const premierPrenom = t => norm((t || "").trim().split(/[\s-]/)[0]);
+      const sexeParPrenom = {};
+      for (const p of personnes) if (p.sexe && p.prenom) { const c = sexeParPrenom[premierPrenom(p.prenom)] = sexeParPrenom[premierPrenom(p.prenom)] || { H: 0, F: 0 }; c[p.sexe]++; }
+      const devinerSexe = p => {
+        const enfP = personnes.find(c => c.pere === p.id), enfM = personnes.find(c => c.mere === p.id);
+        if (enfP && !enfM) return { s: "H", pourquoi: "père de " + nomComplet(enfP) };
+        if (enfM && !enfP) return { s: "F", pourquoi: "mère de " + nomComplet(enfM) };
+        const c = p.prenom && sexeParPrenom[premierPrenom(p.prenom)];
+        if (c && c.H !== c.F) return { s: c.H > c.F ? "H" : "F", pourquoi: "comme les autres « " + p.prenom.trim().split(/[\s-]/)[0] + " » de l’arbre" };
+        return null;
+      };
+      const sansSexe = personnes.filter(p => !p.sexe).map(p => ({ p: p, g: devinerSexe(p) }));
+      const devines = sansSexe.filter(x => x.g).map(x => ({ id: x.p.id, s: x.g.s }));
+      if (devines.length >= 2) ajout("info", "Noms", "sexegroupe|" + devines.length, devines.map(x => x.id),
+        devines.length + " fiches sans sexe peuvent être complétées automatiquement (d’après leur rôle de père ou de mère, ou leur prénom).",
+        { type: "sexes", liste: devines, lib: "Tout compléter (" + devines.length + ")" });
+      for (const { p, g } of sansSexe) ajout("info", "Noms", "sexe|" + p.id, [p.id],
+        nomComplet(p) + " : sexe non renseigné" + (g ? ". Probablement " + (g.s === "H" ? "un homme" : "une femme") + " (" + g.pourquoi + ")." : " (utile pour les liens de parenté)."),
+        { type: "sexe", id: p.id, devine: g ? g.s : "" });
+
+      // 8) Doublons possibles : même prénom, même nom, même année de naissance (ou aucune)
+      const vus = {};
+      for (const p of personnes) {
+        if (!p.prenom || !p.nom) continue;
+        const k = norm(p.prenom).trim() + "|" + norm(p.nom).trim() + "|" + (annee(p.naissance) || "?");
+        (vus[k] = vus[k] || []).push(p);
+      }
+      for (const k in vus) if (vus[k].length > 1) {
+        const g = vus[k];
+        ajout("warn", "Doublons", "doublon|" + g.map(x => x.id).sort().join(","), g.map(x => x.id),
+          g.length + " fiches « " + nomComplet(g[0]) + " »" + (annee(g[0].naissance) ? " nées en " + annee(g[0].naissance) : " sans date de naissance") + " : doublon possible ?",
+          { type: "fusion", ids: g.map(x => x.id), lib: "Comparer et fusionner" });
+      }
+
+      const ordre = { err: 0, warn: 1, info: 2 };
+      return l.sort((a, b) => ordre[a.niv] - ordre[b.niv]);
+    }
+
+    const NIVEAUX = { err: ["Erreurs", "#c0392b", "⛔"], warn: ["À vérifier", "#d98a1c", "⚠"], info: ["Conseils", "#6c58b8", "💡"] };
+    let verifFiltre = "tous", verifResultats = [];
+    const ignores = () => { const a = arbreCourant(); return a.ignores || (a.ignores = []); };
+
+    function dlgVerifier() {
+      verifResultats = verifierArbre();
+      const ign = new Set(ignores());
+      const visibles = verifResultats.filter(x => !ign.has(x.cle));
+      const nbIgn = verifResultats.length - visibles.length;
+      const cats = [...new Set(visibles.map(x => x.cat))];
+      if (verifFiltre !== "tous" && !NIVEAUX[verifFiltre] && !cats.includes(verifFiltre)) verifFiltre = "tous";
+      const liste = visibles.filter(x => verifFiltre === "tous" || x.niv === verifFiltre || x.cat === verifFiltre);
+      const puce = (v, lib, n, c) => '<button type="button" data-vf="' + v + '" class="' + (verifFiltre === v ? "actif" : "") + '" style="--c:' + c + '">' + lib + " <b>" + n + "</b></button>";
+      const personnesDe = x => x.ids.map(id => trouver(id)).filter(Boolean);
+      const item = (x, i) => {
+        const ps = personnesDe(x);
+        return '<div class="vItem v-' + x.niv + '" data-vi="' + i + '"><span class="vIcone" aria-hidden="true">' + NIVEAUX[x.niv][2] + "</span>" +
+          '<div class="vCorps"><small class="vCat">' + echapper(x.cat) + "</small><p>" + echapper(x.msg) + "</p>" +
+          (x.fix && x.fix.type === "decedes" ? '<div class="vCoches">' + ps.map(p => '<label><input type="checkbox" checked data-vdecid="' + p.id + '"> ' +
+              '<button type="button" class="demPers" data-cible="' + p.id + '">' + echapper(nomComplet(p)) + "</button> <small class=\"doux\">" + echapper(annees(p)) + "</small></label>").join("") + "</div>" :
+          ps.length ? '<div class="vPers">' + ps.slice(0, 6).map(p => '<button type="button" class="demPers" data-cible="' + p.id + '">' + echapper(nomComplet(p)) + "</button>").join("") + (ps.length > 6 ? " <small class=\"doux\">+" + (ps.length - 6) + "</small>" : "") + "</div>" : "") +
+          '<div class="vActions">' +
+            (x.fix && x.fix.type === "decedes" ? '<button type="button" class="pBtn plein" data-vdec="' + i + '">† ' + echapper(x.fix.lib) + "</button>" : "") +
+            (x.fix && !["chercher", "sexe", "decedes"].includes(x.fix.type) ? '<button type="button" class="pBtn plein" data-vfix="' + i + '">' + echapper(x.fix.lib) + "</button>" : "") +
+            (x.fix && x.fix.type === "sexe" ? [["H", "♂ Homme"], ["F", "♀ Femme"]].map(([s, lib]) =>
+              '<button type="button" class="pBtn' + (x.fix.devine === s ? " plein" : "") + '" data-vsexe="' + i + ":" + s + '">' + lib + "</button>").join("") : "") +
+            (x.fix && x.fix.type === "chercher" ? '<button type="button" class="pBtn" data-vcherche="' + i + '">Chercher la bonne commune</button>' : "") +
+            '<button type="button" class="pBtn" data-vign="' + i + '">Ignorer</button></div>' +
+          '<div class="vPropo" data-vpropo="' + i + '"></div></div></div>';
+      };
+      const compteNiv = n => visibles.filter(x => x.niv === n).length;
+      ouvrirDlg("Vérification de l’arbre",
+        '<div id="verif">' +
+        (!personnes.length ? '<p class="doux">Ton arbre est vide.</p>' :
+          !visibles.length ? '<p class="vOk">✔ Aucune erreur détectée dans les ' + personnes.length + " fiches.</p>" :
+          '<p class="doux">' + personnes.length + " fiches vérifiées. Clique sur un nom pour ouvrir sa fiche.</p>" +
+          '<div class="demPuces">' + puce("tous", "Tout", visibles.length, "#7b66c6") +
+            ["err", "warn", "info"].filter(n => compteNiv(n)).map(n => puce(n, NIVEAUX[n][0], compteNiv(n), NIVEAUX[n][1])).join("") +
+            cats.map(c => puce(c, c, visibles.filter(x => x.cat === c).length, "#5b5170")).join("") + "</div>" +
+          '<div class="vListe">' + (liste.length ? liste.map(x => item(x, verifResultats.indexOf(x))).join("") : '<p class="doux">Rien dans cette catégorie.</p>') + "</div>") +
+        (nbIgn ? '<p class="doux vIgn">' + nbIgn + " alerte" + (nbIgn > 1 ? "s ignorées" : " ignorée") + ' · <button type="button" class="lienBtn" data-vreaff>Tout réafficher</button></p>' : "") +
+        "</div>");
+    }
+
+    function appliquerCorrection(x) {
+      let n = 0;
+      if (x.fix.type === "remplacer") for (const de of x.fix.de) n += remplacerLieuPartout(de, x.fix.vers);
+      if (x.fix.type === "prenom") { const p = trouver(x.fix.id); if (p) { p.prenom = x.fix.vers; n = 1; } }
+      if (x.fix.type === "sexe") { const p = trouver(x.fix.id); if (p) { p.sexe = x.fix.s; n = 1; } }
+      if (x.fix.type === "sexes") for (const y of x.fix.liste) { const p = trouver(y.id); if (p && !p.sexe) { p.sexe = y.s; n++; } }
+      sauvegarder();
+      if (choix) ouvrir(choix); else afficherArbre();
+      dlgVerifier();
+      dire(n ? "Corrigé (" + n + " champ" + (n > 1 ? "s" : "") + ")." : "");
+    }
+
+    $("dlgOutil").addEventListener("click", async function (e) {
+      if (!e.target.closest("#verif")) return;
+      const b = e.target.closest("button");
+      if (!b) return;
+      if (b.dataset.vf) { verifFiltre = b.dataset.vf; dlgVerifier(); return; }
+      if (b.dataset.vdec) {
+        const ids = [...b.closest(".vItem").querySelectorAll("[data-vdecid]:checked")].map(c => c.dataset.vdecid);
+        if (!ids.length) { dire("Coche au moins une personne."); return; }
+        for (const id of ids) { const p = trouver(id); if (p && !estDecede(p)) p.decede = true; }
+        sauvegarder();
+        if (choix) ouvrir(choix); else afficherArbre();
+        dlgVerifier();
+        dire(ids.length + " personne" + (ids.length > 1 ? "s marquées décédées" : " marquée décédée") + ".");
+        return;
+      }
+      if (b.dataset.vsexe) {
+        const [i, s] = b.dataset.vsexe.split(":"), x = verifResultats[+i];
+        if (x) appliquerCorrection({ fix: { type: "sexe", id: x.fix.id, s: s } });
+        return;
+      }
+      if (b.hasAttribute("data-vreaff")) { arbreCourant().ignores = []; sauvegarder(); dlgVerifier(); return; }
+      if (b.dataset.vign) { const x = verifResultats[+b.dataset.vign]; if (x) { ignores().push(x.cle); sauvegarder(); dlgVerifier(); } return; }
+      if (b.dataset.vfix) {
+        const x = verifResultats[+b.dataset.vfix];
+        if (x && x.fix.type === "fusion") { fusionCle = x.cle; dlgFusion(x.fix.ids[0], x.fix.ids[1]); }
+        else if (x) appliquerCorrection(x);
+        return;
+      }
+      if (b.dataset.vremp) {
+        const [i, j] = b.dataset.vremp.split(":").map(Number), x = verifResultats[i], c = x && x.propos && x.propos[j];
+        if (c) { if (c.pt) { geo[cleLieu(c.lib)] = c.pt; try { localStorage.setItem(CLE_GEO, JSON.stringify(geo)); } catch (er) {} }
+                 appliquerCorrection({ fix: { type: "remplacer", de: [x.fix.lieu], vers: c.lib } }); }
+        return;
+      }
+      if (b.dataset.vcherche) {
+        const i = +b.dataset.vcherche, x = verifResultats[i], z = this.querySelector('[data-vpropo="' + i + '"]');
+        if (!x || !z) return;
+        z.innerHTML = '<small class="doux">Recherche…</small>';
+        const items = await chercherCommunes(x.fix.lieu.split(",")[0].trim());
+        x.propos = items;
+        z.innerHTML = items.length ? "<small class=\"doux\">Remplacer « " + echapper(x.fix.lieu) + " » partout par :</small>" +
+          items.slice(0, 5).map((c, j) => '<button type="button" class="pBtn" data-vremp="' + i + ":" + j + '">' + echapper(c.lib) + "</button>").join("")
+          : '<small class="doux">Aucune commune trouvée : corrige l’orthographe directement dans les fiches.</small>';
+      }
+    });
+
+    // ---------- Fusion de deux fiches (doublon confirmé) ----------
+    // On garde une fiche (A), on y recopie les valeurs choisies de l'autre (B), on rattache à A tout ce qui pointait vers B,
+    // puis B est supprimée. Rien n'est perdu : photos, notes, étiquettes, unions et démarches sont réunies.
+    const CHAMPS_FUSION = [
+      ["prenom", "Prénom"], ["nom", "Nom"], ["sexe", "Sexe"],
+      ["naissance", "Date de naissance"], ["lieuNaissance", "Lieu de naissance"],
+      ["deces", "Date de décès"], ["lieuDeces", "Lieu de décès"],
+      ["pere", "Père"], ["mere", "Mère"],
+      ["union", "Conjoint(e) principal(e) et mariage"],
+      ["armee", "Armée"], ["unite", "Unité"], ["grade", "Grade"], ["periodeMilitaire", "Période militaire"], ["matricule", "Matricule"]];
+    let fusion = null, fusionCle = null;
+
+    function valeurFusion(p, k) {
+      if (k === "sexe") return p.sexe === "H" ? "Homme" : p.sexe === "F" ? "Femme" : "";
+      if (k === "pere" || k === "mere") { const q = p[k] && trouver(p[k]); return q ? nomComplet(q) + (annees(q) ? " (" + annees(q) + ")" : "") : ""; }
+      if (k === "union") {
+        const q = p.conjoint && trouver(p.conjoint);
+        return q ? nomComplet(q) + (p.mariage || p.lieuMariage ? " · mariage " + [p.mariage, p.lieuMariage].filter(Boolean).join(", ") : "") : "";
+      }
+      if (/^(naissance|deces)$/.test(k)) return p[k] ? dateLisible(p[k]) : "";
+      return (p[k] || "").trim();
+    }
+    // Valeur proposée par défaut : celle qui est remplie, sinon la plus précise
+    function choixParDefaut(a, b, k) {
+      const va = valeurFusion(a, k), vb = valeurFusion(b, k);
+      if (!va) return vb ? "B" : "A";
+      if (!vb || va === vb) return "A";
+      if (/^(naissance|deces)$/.test(k)) {
+        const fa = fourchette(a[k]), fb = fourchette(b[k]);
+        const larg = f => !f || f.erreur ? 1e9 : f.max - f.min;
+        return larg(fb) < larg(fa) ? "B" : "A";
+      }
+      if (/^lieu/.test(k)) return b[k].split(",").length > a[k].split(",").length ? "B" : "A";
+      return "A";
+    }
+    const resumeFiche = p => {
+      const enf = personnes.filter(c => c.pere === p.id || c.mere === p.id).length;
+      return [enf ? enf + " enfant" + (enf > 1 ? "s" : "") : "", (p.docs || []).length ? (p.docs.length + " photo(s)/doc(s)") : "",
+        (p.notes || []).length ? p.notes.length + " note(s)" : "", (p.unions || []).length ? p.unions.length + " autre(s) union(s)" : ""].filter(Boolean).join(" · ") || "aucun lien ni document";
+    };
+
+    function dlgFusion(aId, bId) {
+      let a = trouver(aId), b = trouver(bId);
+      if (!a || !b) { dlgVerifier(); return; }
+      // Par défaut on garde la fiche la plus riche
+      const poids = p => personnes.filter(c => c.pere === p.id || c.mere === p.id).length * 3 + (p.docs || []).length + (p.notes || []).length + CHAMPS.filter(k => p[k]).length;
+      if (!fusion || fusion.a !== aId || fusion.b !== bId) {
+        if (poids(b) > poids(a)) [a, b] = [b, a];
+        fusion = { a: a.id, b: b.id, choix: {} };
+        for (const [k] of CHAMPS_FUSION) fusion.choix[k] = choixParDefaut(a, b, k);
+      } else { a = trouver(fusion.a); b = trouver(fusion.b); }
+      const lignes = CHAMPS_FUSION.map(([k, lib]) => {
+        const va = valeurFusion(a, k), vb = valeurFusion(b, k);
+        if (!va && !vb) return "";
+        const pareil = va === vb, c = fusion.choix[k];
+        const cell = (cote, v) => '<td class="' + (pareil ? "fIdem" : c === cote ? "fChoisi" : "fEcarte") + '">' + (pareil ? echapper(v) :
+          '<label><input type="radio" name="f_' + k + '" value="' + cote + '"' + (c === cote ? " checked" : "") + "> " + (v ? echapper(v) : '<span class="doux">(vide)</span>') + "</label>") + "</td>";
+        return "<tr><th>" + lib + "</th>" + cell("A", va) + cell("B", vb) + "</tr>";
+      }).join("");
+      ouvrirDlg("Fusionner deux fiches",
+        '<div id="fusion">' +
+        '<p class="doux">Pour chaque information différente, choisis celle à garder. Tout le reste est réuni dans une seule fiche : enfants, conjoints, photos, documents, notes, étiquettes et démarches.</p>' +
+        '<table class="fTable"><thead><tr><th></th>' +
+          '<th>Fiche gardée<br><b>' + echapper(nomComplet(a)) + "</b><small>" + echapper(resumeFiche(a)) + "</small></th>" +
+          "<th>Fiche fusionnée puis supprimée<br><b>" + echapper(nomComplet(b)) + "</b><small>" + echapper(resumeFiche(b)) + "</small></th></tr></thead>" +
+        "<tbody>" + lignes + "</tbody></table>" +
+        '<p class="fAvert">⚠ La fusion est définitive : la seconde fiche disparaît (ses informations, elles, sont conservées dans la première).</p>' +
+        '<button type="button" class="action" data-fusionner>Fusionner en une seule personne</button>' +
+        '<button type="button" class="action clair" data-pasdoublon>Ce ne sont pas les mêmes personnes</button>' +
+        '<button type="button" class="action clair" data-fretour>Retour</button>' +
+        "</div>");
+    }
+
+    function fusionner(a, b, choix) {
+      const val = (k) => choix[k] === "B" ? b[k] : a[k];
+      // 1) Champs simples choisis
+      for (const k of ["prenom", "nom", "sexe", "naissance", "lieuNaissance", "deces", "lieuDeces", "pere", "mere",
+                       "armee", "unite", "grade", "periodeMilitaire", "matricule"]) a[k] = val(k) || "";
+      if (a.pere === a.id || a.pere === b.id) a.pere = "";
+      if (a.mere === a.id || a.mere === b.id) a.mere = "";
+      // 2) Union principale choisie ; l'autre devient une « autre union » (rien n'est perdu)
+      const donnees = p => ({ conjoint: p.conjoint || "", mariage: p.mariage || "", lieuMariage: p.lieuMariage || "", divorce: p.divorce || "", lieuDivorce: p.lieuDivorce || "" });
+      const gardee = choix.union === "B" ? donnees(b) : donnees(a), autre = choix.union === "B" ? donnees(a) : donnees(b);
+      Object.assign(a, gardee);
+      a.unions = (a.unions || []).concat(b.unions || []);
+      if (autre.conjoint && autre.conjoint !== gardee.conjoint) a.unions.push({ avec: autre.conjoint, mariage: autre.mariage, lieuMariage: autre.lieuMariage, divorce: autre.divorce, lieuDivorce: autre.lieuDivorce });
+      // 3) Documents, photo de profil, notes, étiquettes
+      a.docs = (a.docs || []).concat(b.docs || []);
+      if (!a.photoId && b.photoId) a.photoId = b.photoId;
+      a.notes = (a.notes || []).concat(b.notes || []);
+      a.etiquettes = [...new Set((a.etiquettes || []).concat(b.etiquettes || []))];
+      for (const k of ["docs", "notes", "etiquettes"]) if (!a[k].length) delete a[k];
+      // 4) Tout ce qui pointait vers B pointe maintenant vers A
+      for (const q of personnes) {
+        if (q === b) continue;
+        if (q.pere === b.id) q.pere = a.id;
+        if (q.mere === b.id) q.mere = a.id;
+        if (q.conjoint === b.id) q.conjoint = q === a ? "" : a.id;
+        for (const u of q.unions || []) if (u.avec === b.id) u.avec = a.id;
+      }
+      // Unions : pas de doublon, pas d'union avec soi-même ni avec le conjoint principal
+      const vus = new Set();
+      a.unions = a.unions.filter(u => u.avec && u.avec !== a.id && u.avec !== a.conjoint && !vus.has(u.avec) && vus.add(u.avec));
+      if (!a.unions.length) delete a.unions;
+      if (a.conjoint === a.id) a.conjoint = "";
+      for (const q of personnes) if (q.unions) { const v = new Set(); q.unions = q.unions.filter(u => u.avec !== q.id && !v.has(u.avec) && v.add(u.avec)); if (!q.unions.length) delete q.unions; }
+      // 5) Démarches, parcours, puis suppression de B
+      for (const d of demandes()) if (d.personne === b.id) d.personne = a.id;
+      fil = fil.map(id => id === b.id ? a.id : id).filter((id, i, t) => t.indexOf(id) === i);
+      if (dernier === b.id) dernier = a.id;
+      a.maj = Date.now();
+      personnes = personnes.filter(p => p !== b);
+      arbreCourant().personnes = personnes;
+    }
+
+    $("dlgOutil").addEventListener("change", function (e) {
+      if (!fusion || !e.target.closest("#fusion") || !e.target.name || !e.target.name.startsWith("f_")) return;
+      fusion.choix[e.target.name.slice(2)] = e.target.value;
+      // On met juste la ligne à jour (pas de redessin : la fenêtre ne remonte pas)
+      e.target.closest("tr").querySelectorAll("td:not(.fIdem)").forEach(td => {
+        const r = td.querySelector("input");
+        td.className = r && r.checked ? "fChoisi" : "fEcarte";
+      });
+    });
+    $("dlgOutil").addEventListener("click", function (e) {
+      if (!e.target.closest("#fusion")) return;
+      const t = e.target.closest("button");
+      if (!t || !fusion) return;
+      if (t.hasAttribute("data-fretour")) { fusion = null; dlgVerifier(); return; }
+      if (t.hasAttribute("data-pasdoublon")) {
+        if (fusionCle) ignores().push(fusionCle);
+        fusion = null; sauvegarder(); dlgVerifier(); dire("Noté : ce ne sont pas des doublons."); return;
+      }
+      if (t.hasAttribute("data-fusionner")) {
+        const a = trouver(fusion.a), b = trouver(fusion.b);
+        if (!a || !b) return;
+        if (!confirm("Fusionner « " + nomComplet(b) + " » dans « " + nomComplet(a) + " » ?\n\nLa seconde fiche sera supprimée. C'est définitif.")) return;
+        fusionner(a, b, fusion.choix);
+        fusion = null;
+        sauvegarder();
+        ouvrir(a.id);
+        dlgVerifier();
+        dire("Fiches fusionnées : " + nomComplet(a) + ".");
+      }
+    });
+
     // Parenté
     const parenteSel = { A: null, B: null };
 
@@ -1638,6 +2568,8 @@
         ouvrirDlg("Rechercher une personne", '<input type="search" id="qDlg" placeholder="Nom, prénom ou commune…" autocomplete="off"><div id="resDlg">' + resultatsRecherche("") + "</div>");
         $("qDlg").focus();
       } else if (o === "suivi") dlgSuivi();
+      else if (o === "demarches") { demEdition = null; dlgDemarches(); }
+      else if (o === "verifier") { verifFiltre = "tous"; dlgVerifier(); }
       else if (o === "parente") dlgParente();
       else if (o === "imprimer") window.print();
       else if (o === "listes") { vue = "liste"; base.vue = "liste"; sauvegarderBase(); afficherArbre(); }
@@ -2108,8 +3040,8 @@
         (a.nom || "").localeCompare(b.nom || "", "fr") || (a.prenom || "").localeCompare(b.prenom || "", "fr"));
       return '<table class="liste"><thead><tr><th>Nom</th><th>Prénom</th><th>Naissance</th><th>Lieu</th><th>Décès</th></tr></thead><tbody>' +
         l.map(p => '<tr class="sl' + (p.id === choix ? " on" : "") + '" data-id="' + p.id + '"><td>' + echapper((p.nom || "").toUpperCase()) +
-          "</td><td>" + echapper(p.prenom || "") + "</td><td>" + echapper(dateLongue(p.naissance)) + "</td><td>" +
-          echapper(p.lieuNaissance || "") + "</td><td>" + echapper(dateLongue(p.deces)) + "</td></tr>").join("") + "</tbody></table>";
+          "</td><td>" + echapper(p.prenom || "") + "</td><td>" + echapper(dateLisible(p.naissance)) + "</td><td>" +
+          echapper(p.lieuNaissance || "") + "</td><td>" + echapper(dateLisible(p.deces)) + "</td></tr>").join("") + "</tbody></table>";
     }
 
     // Roue : demi-cercle des ancêtres, 6 générations, une couleur par grand-parent
@@ -2739,7 +3671,9 @@
       const p = trouver(id);
       for (const k of CHAMPS) $(k).value = p[k] || "";
       rendreUnions(p);
+      equiperDates($("formulaire"));   // répartit « vers 1880 » dans la liste + la case
       $("militaire").open = !!(p.armee || p.unite || p.grade || p.periodeMilitaire || p.matricule);
+      $("decede").checked = estDecede(p);
       // On reste sur l'onglet en cours (Famille, Docs, Notes…) en passant d'une personne à l'autre ;
       // seul le formulaire « Modifier » revient aux événements.
       if (onglet === "modifier") onglet = "fiche";
@@ -2755,6 +3689,7 @@
       $("militaire").open = false;
       remplirListes();
       rendreUnions(null);
+      equiperDates($("formulaire"));
 
       const x = relation && trouver(relation.ref);
       if (x) {
@@ -2809,8 +3744,10 @@
       const ancienConjoint = p.conjoint;
 
       for (const k of CHAMPS) {
-        p[k] = $(k).value.trim();
+        p[k] = $(k).hasAttribute("data-date") ? lireDate($(k)) : $(k).value.trim();
       }
+      // Décédé(e) sans date connue (inutile si la date ou le lieu du décès est renseigné)
+      if ($("decede").checked && !p.deces && !p.lieuDeces) p.decede = true; else delete p.decede;
       p.maj = Date.now();
 
       // Le lien de conjoint va dans les deux sens
@@ -2906,6 +3843,7 @@
 
     $("ajoutUnion").addEventListener("click", function () {
       $("autresUnions").insertAdjacentHTML("beforeend", ligneUnion({}));
+      equiperDates($("autresUnions"));
     });
 
     $("autresUnions").addEventListener("click", function (e) {
@@ -2955,6 +3893,7 @@
 
     $("vueFiche").addEventListener("click", function (e) {
       const bt = e.target.closest("button");
+      if (bt && bt.dataset.demOuvrir) { dlgDemarches(bt.dataset.demOuvrir); return; }
       if (bt && bt.dataset.menuev) {
         const m = bt.nextElementSibling, etaitOuvert = !m.hidden;
         fermerMenus();
