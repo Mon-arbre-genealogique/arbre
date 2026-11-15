@@ -474,6 +474,7 @@
     .demGrille { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
     .demGrille label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: #4a3f66; min-width: 0; }
     .demGrille .demLarge { grid-column: 1 / -1; }
+    .demGrille label[hidden] { display: none; }
     .demGrille input, .demGrille select { font: inherit; font-weight: 400; font-size: 14px; padding: 7px 9px; border: 1px solid #d9d0ea; border-radius: 8px; background: #fff; width: 100%; box-sizing: border-box; }
     .demForm button.action { margin: 12px 8px 0 0; }
     .demLigne { display: grid; grid-template-columns: minmax(0, 1fr) 210px auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid #ece6f3; border-radius: 12px; margin-top: 8px; }
@@ -1775,7 +1776,7 @@
     let demFiltre = "tous", demEdition = null;
 
     const demandes = () => { const a = arbreCourant(); return a.demandes || (a.demandes = []); };
-    const demandesDe = id => demandes().filter(d => d.personne === id);
+    const demandesDe = id => demandes().filter(d => d.personne === id || d.conjointId === id);
     const aujourdhui = () => new Date().toISOString().slice(0, 10);
     const dateCourte = iso => iso ? new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "";
     const joursDepuis = iso => iso ? Math.floor((Date.now() - new Date(iso + "T12:00:00").getTime()) / 86400000) : 0;
@@ -1795,9 +1796,9 @@
     }
 
     // Organisme proposé selon l'acte et les lieux de la fiche (ex. « Mairie d'Évreux »)
-    function organismePropose(p, acte) {
-      if (!p) return "";
-      const lieu = /mariage/i.test(acte) ? p.lieuMariage : /décès|inhumation/i.test(acte) ? p.lieuDeces : p.lieuNaissance;
+    function organismePropose(p, acte, lieuImpose) {
+      if (!p && !lieuImpose) return "";
+      const lieu = lieuImpose || (/mariage/i.test(acte) ? p.lieuMariage : /décès|inhumation/i.test(acte) ? p.lieuDeces : p.lieuNaissance);
       const ville = (lieu || "").split(",")[0].trim();
       if (/matricule|recensement/i.test(acte)) return ville ? "Archives départementales (" + ville + ")" : "Archives départementales";
       if (!ville) return "";
@@ -1805,6 +1806,37 @@
       if (/^le\s/i.test(ville)) return "Mairie du " + ville.slice(3);
       if (/^les\s/i.test(ville)) return "Mairie des " + ville.slice(4);
       return (/^[aeiouyàâäéèêëîïôöûü]/i.test(ville) ? "Mairie d’" : "Mairie de ") + ville;
+    }
+
+    // Époux / épouse d'un acte de mariage : nom actuel s'il est dans l'arbre, sinon le nom noté
+    function nomConjDemande(d, avecAnnees) {
+      const q = d.conjointId && trouver(d.conjointId);
+      if (q) return avecAnnees ? libellePers(q) : nomComplet(q);
+      return (d.conjoint || "").replace(/\s*\([^)]*\)\s*$/, "");
+    }
+    // Montre le champ Époux / épouse pour un acte de mariage, propose les conjoints de la personne
+    function majChampConjoint(form) {
+      const mariage = /mariage/i.test(form.elements.acte.value);
+      const bloc = form.querySelector(".demConj"), champ = form.elements.conjointNom;
+      if (bloc) bloc.hidden = !mariage;
+      const p = personneDepuisTexte(form.elements.personneNom.value), us = p ? unionsChrono(p) : [];
+      const liste = form.querySelector("#demConjoints");
+      if (liste) liste.innerHTML = (us.length ? us.map(u => u.q) : personnes).map(q => '<option value="' + echapper(libellePers(q)) + '"></option>').join("");
+      // Un seul mariage connu : on le remplit d'office (sans écraser une saisie)
+      if (mariage && us.length === 1 && (!champ.value.trim() || champ.dataset.auto === "1")) { champ.value = libellePers(us[0].q); champ.dataset.auto = "1"; }
+      if (mariage && us.length !== 1 && champ.dataset.auto === "1" && !us.some(u => libellePers(u.q) === champ.value)) champ.value = "";
+      const aide = form.querySelector("#demAideConj"), t = champ.value.trim();
+      if (aide) aide.textContent = !mariage ? "" : !t ? (us.length > 1 ? us.length + " mariages connus : choisis dans la liste" : "") :
+        personneDepuisTexte(t) ? "✔ Dans ton arbre" : "Pas dans l’arbre : le nom sera noté tel quel";
+    }
+    // Mairie proposée ; pour un mariage, celle du lieu de CE mariage-là
+    function organismeForm(form) {
+      const p = personneDepuisTexte(form.elements.personneNom.value), acte = form.elements.acte.value;
+      if (p && /mariage/i.test(acte)) {
+        const c = personneDepuisTexte(form.elements.conjointNom.value), u = c && unionsDe(p).find(x => x.q.id === c.id);
+        if (u && u.lieuMariage) return organismePropose(p, acte, u.lieuMariage);
+      }
+      return organismePropose(p, acte);
     }
 
     function formDemande(d) {
@@ -1817,6 +1849,9 @@
           ' value="' + echapper(p0 ? libellePers(p0) : d.nomLibre || "") + '"><small class="demAide doux" id="demAide"></small></label>' +
         '<datalist id="demPersonnes">' + pers.map(p => '<option value="' + echapper(libellePers(p)) + '"></option>').join("") + "</datalist>" +
         '<label>Document<select name="acte">' + opts(ACTES, d.acte) + "</select></label>" +
+        '<label class="demConj"' + (/mariage/i.test(d.acte || "") ? "" : " hidden") + '>Époux / épouse<input name="conjointNom" list="demConjoints" maxlength="120" placeholder="ex. Jeanne Delhaes"' +
+          ' data-auto="' + (d.id ? "0" : "1") + '" value="' + echapper(nomConjDemande(d, true)) + '"><small class="demAide doux" id="demAideConj"></small></label>' +
+        '<datalist id="demConjoints"></datalist>' +
         '<label>Organisme ou lieu<input name="organisme" maxlength="120" placeholder="ex. Mairie d’Évreux, AD de l’Eure" data-auto="' + (d.id ? "0" : "1") + '" value="' + echapper(d.organisme || "") + '"></label>' +
         '<label>Moyen<select name="moyen">' + opts(MOYENS, d.moyen) + "</select></label>" +
         '<label>Statut<select name="statut">' + STATUTS.map(s => '<option value="' + s[0] + '"' + (s[0] === d.statut ? " selected" : "") + ">" + s[1] + "</option>").join("") + "</select></label>" +
@@ -1835,7 +1870,7 @@
     // Liste filtrée par statut et par la recherche (nom, document, organisme, note)
     function htmlListeDem() {
       const liste = demandes(), q = norm(demRecherche.trim());
-      const texteDe = d => { const p = trouver(d.personne); return norm([p ? nomComplet(p) : d.nomLibre, d.acte, d.organisme, d.moyen, d.note].filter(Boolean).join(" ")); };
+      const texteDe = d => { const p = trouver(d.personne); return norm([p ? nomComplet(p) : d.nomLibre, nomConjDemande(d), d.acte, d.organisme, d.moyen, d.note].filter(Boolean).join(" ")); };
       const filtree = liste.filter(d => (demFiltre === "tous" || (demFiltre === "relance" ? aRelancer(d) : d.statut === demFiltre)) &&
           (!q || q.split(/\s+/).every(m => texteDe(d).includes(m))))
         .sort((a, b) => ((a.statut === "recue") - (b.statut === "recue")) || (b.dateDemande || b.cree || "").localeCompare(a.dateDemande || a.cree || ""));
@@ -1848,7 +1883,7 @@
           '<div class="demQui">' + (p ? '<button type="button" class="demPers" data-cible="' + p.id + '">' + echapper(nomComplet(p)) + "</button>"
             : d.nomLibre ? '<span class="demLibre">' + echapper(d.nomLibre) + ' <small class="doux">(pas dans l’arbre)</small></span>'
             : '<span class="doux">(personne supprimée)</span>') +
-            "<b>" + echapper(d.acte) + "</b>" +
+            "<b>" + echapper(d.acte) + (nomConjDemande(d) ? " avec " + echapper(nomConjDemande(d)) : "") + "</b>" +
             '<small class="doux">' + echapper([d.organisme, d.moyen].filter(Boolean).join(" · ")) + "</small>" +
             (d.note ? '<small class="demNote">' + echapper(d.note) + "</small>" : "") + "</div>" +
           '<div class="demEtat"><select data-dem-statut aria-label="Statut" style="border-color:' + coulStatut(d.statut) + ";color:" + coulStatut(d.statut) + '">' +
@@ -1876,7 +1911,7 @@
         '<div id="demListe">' + htmlListeDem() + "</div>" +
         "</div>");
       const f = $("demForm");
-      if (f) { aideFormPersonne(f); (pourId ? f.elements.organisme : f.elements.personneNom).focus(); }
+      if (f) { aideFormPersonne(f); majChampConjoint(f); (pourId ? f.elements.organisme : f.elements.personneNom).focus(); }
     }
 
     function enregistrerDemande(form) {
@@ -1889,6 +1924,10 @@
       d.personne = p ? p.id : "";
       d.nomLibre = p ? "" : texte.slice(0, 120);   // personne pas (encore) dans l'arbre
       for (const k of ["acte", "organisme", "moyen", "statut", "dateDemande", "dateRecu", "note"]) d[k] = v(k);
+      // Acte de mariage : l'époux ou l'épouse (dans l'arbre ou noté tel quel)
+      const tConj = /mariage/i.test(d.acte) ? v("conjointNom") : "", c = personneDepuisTexte(tConj);
+      d.conjointId = c ? c.id : "";
+      d.conjoint = c ? "" : tConj.slice(0, 120);
       if (d.statut === "demandee" && !d.dateDemande) d.dateDemande = aujourdhui();
       if ((d.statut === "recue" || d.statut === "introuvable") && !d.dateRecu) d.dateRecu = aujourdhui();
       if (!demandes().includes(d)) demandes().push(d);
@@ -1904,10 +1943,13 @@
       const form = e.target.closest("#demForm");
       if (!form) return;
       if (e.target.name === "organisme") { e.target.dataset.auto = "0"; return; }
-      if (e.target.name === "personneNom") {
-        // Au fil de la frappe : indique si la personne est dans l'arbre et propose sa mairie
-        const p = aideFormPersonne(form), org = form.elements.organisme;
-        if (!org.value.trim() || org.dataset.auto === "1") { org.value = p ? organismePropose(p, form.elements.acte.value) : ""; org.dataset.auto = "1"; }
+      if (e.target.name === "personneNom" || e.target.name === "conjointNom") {
+        // Au fil de la frappe : indique si la personne est dans l'arbre, propose son conjoint et la mairie
+        if (e.target.name === "conjointNom") e.target.dataset.auto = "0";
+        aideFormPersonne(form);
+        majChampConjoint(form);
+        const org = form.elements.organisme;
+        if (!org.value.trim() || org.dataset.auto === "1") { org.value = organismeForm(form); org.dataset.auto = "1"; }
       }
     });
     $("dlgOutil").addEventListener("submit", function (e) {
@@ -1934,8 +1976,10 @@
       if (!e.target.closest("#demarches")) return;
       const form = e.target.form;
       // Formulaire : proposer l'organisme quand on choisit la personne ou le document (sans écraser une saisie)
-      if (form && form.id === "demForm" && (e.target.name === "personneNom" || e.target.name === "acte")) {
-        const org = form.elements.organisme, auto = organismePropose(aideFormPersonne(form), form.elements.acte.value);
+      if (form && form.id === "demForm" && ["personneNom", "acte", "conjointNom"].includes(e.target.name)) {
+        aideFormPersonne(form);
+        majChampConjoint(form);
+        const org = form.elements.organisme, auto = organismeForm(form);
         if (!org.value.trim() || org.dataset.auto === "1") { org.value = auto; org.dataset.auto = "1"; }
         return;
       }
@@ -1954,6 +1998,7 @@
     function blocDemarches(p) {
       const l = demandesDe(p.id);
       const items = l.map(d => '<li><span class="demPastille" style="background:' + coulStatut(d.statut) + '"></span>' + echapper(d.acte) +
+        (nomConjDemande(d) && d.conjointId !== p.id ? " avec " + echapper(nomConjDemande(d)) : d.conjointId === p.id && trouver(d.personne) ? " avec " + echapper(nomComplet(trouver(d.personne))) : "") +
         ' <small class="doux">— ' + echapper(libStatut(d.statut)) + (aRelancer(d) ? ", à relancer" : "") + "</small></li>").join("");
       return '<div class="demFiche"><div class="demFicheTete"><b>📬 Démarches' + (l.length ? " (" + l.length + ")" : "") + "</b>" +
         '<button type="button" class="pBtn" data-dem-ouvrir="' + p.id + '">+ Demander un acte</button></div>' +
@@ -2142,7 +2187,7 @@
         if (dansVariantes.has(v)) continue;   // déjà couvert par « le même lieu est écrit de plusieurs façons »
         if (malEcrit(ville)) ajout("info", "Lieux", "maj|" + v, [...ids], "Lieu « " + v + " » (" + n + ") : majuscules à corriger.",
           { type: "remplacer", de: [v], vers: [majusculesPropres(ville)].concat(v.split(",").slice(1).map(x => x.trim())).join(", "), lib: "Corriger en « " + [majusculesPropres(ville)].concat(v.split(",").slice(1).map(x => x.trim())).join(", ") + " »" });
-        else if (!v.includes(",")) ajout("info", "Lieux", "sansdep|" + v, [...ids], "Lieu « " + v + " » (" + n + ") sans département ni pays : risque de confusion avec une commune du même nom.", { type: "chercher", lieu: v });
+        else if (!v.includes(",") && !estPays(v) && !paysAncien(v)) ajout("info", "Lieux", "sansdep|" + v, [...ids], "Lieu « " + v + " » (" + n + ") sans département ni pays : risque de confusion avec une commune du même nom.", { type: "chercher", lieu: v });
       }
 
       // 7) Noms : prénom ou nom manquant, minuscules, sexe non renseigné
@@ -3552,6 +3597,21 @@
       "piemont": "it", "royaume de sardaigne": "it", "lombardie venetie": "it", "pays bas autrichiens": "be", "flandre": "be"
     };
     const paysAncien = seg => ANCIENS_ETATS[normLieu(seg)] || "";
+    // Noms de tous les pays en français (fournis par le navigateur) : « Afghanistan », « Algérie », « États-Unis »…
+    let nomsPays = null;
+    function estPays(t) {
+      if (!nomsPays) {
+        nomsPays = new Set(["france"]);
+        try {
+          const dn = new Intl.DisplayNames(["fr"], { type: "region" });
+          for (let a = 65; a < 91; a++) for (let b = 65; b < 91; b++) {
+            const code = String.fromCharCode(a, b);
+            try { const nom = dn.of(code); if (nom && nom !== code) nomsPays.add(normLieu(nom)); } catch (e) {}
+          }
+        } catch (e) {}
+      }
+      return nomsPays.has(normLieu(t));
+    }
     // Morceaux qui sont vraiment des lieux (sans mots de paroisse ni anciens États)
     const morceauxLieu = l => l.split(",").map(x => x.trim()).filter(Boolean).filter(seg => !estMotParoisse(seg));
 
