@@ -984,6 +984,16 @@
     function nomComplet(p) {
       return (p.prenom + " " + (p.nom || "").toUpperCase()).trim();
     }
+    // Ordre alphabétique des listes : nom de famille, puis prénom, puis année de naissance (homonymes) ; sans nom à la fin
+    function parNomDeFamille(a, b) {
+      const na = (a.nom || "").trim(), nb = (b.nom || "").trim();
+      if (!na !== !nb) return na ? -1 : 1;
+      return na.localeCompare(nb, "fr", { sensitivity: "base" }) ||
+        (a.prenom || "").localeCompare(b.prenom || "", "fr", { sensitivity: "base" }) ||
+        ((+annee(a.naissance) || 9999) - (+annee(b.naissance) || 9999));
+    }
+    // Libellé « NOM Prénom (années) » pour les listes de choix, où l'ordre est celui des noms de famille
+    const nomListe = p => ([(p.nom || "").toUpperCase(), p.prenom].filter(Boolean).join(" ") || "(sans nom)") + (annees(p) ? " (" + annees(p) + ")" : "");
 
     const aDesParents = p => !!((p.pere && trouver(p.pere)) || (p.mere && trouver(p.mere)));
 
@@ -1100,8 +1110,8 @@
       u.divorce || u.lieuDivorce ? "Divorce " + [u.divorce, u.lieuDivorce].filter(Boolean).join(" à ") : ""].filter(Boolean).join(" · ");
 
     function ligneUnion(u) {
-      const opts = '<option value="">—</option>' + personnes.filter(p => p.id !== choix).map(p =>
-        '<option value="' + p.id + '"' + (p.id === u.avec ? " selected" : "") + ">" + echapper(nomComplet(p)) + "</option>").join("");
+      const opts = '<option value="">—</option>' + personnes.filter(p => p.id !== choix).sort(parNomDeFamille).map(p =>
+        '<option value="' + p.id + '"' + (p.id === u.avec ? " selected" : "") + ">" + echapper(nomListe(p)) + "</option>").join("");
       const champ = (k, lib) => "<div><label>" + lib + '</label><input data-u="' + k + '" autocomplete="off"' +
         (/^lieu/.test(k) ? ' data-lieu placeholder="Tapez une commune…"' : ' data-date placeholder="12/03/1950 ou 1950"') +
         ' value="' + echapper(u[k] || "") + '"></div>';
@@ -1749,7 +1759,7 @@
     function resultatsRecherche(q) {
       const mots = norm(q).split(/\s+/).filter(Boolean);
       if (!mots.length) return '<p class="doux">Tapez un nom, un prénom ou une commune.</p>';
-      const l = personnes.filter(p => { const t = norm(nomComplet(p) + " " + (p.lieuNaissance || "")); return mots.every(m => t.includes(m)); }).slice(0, 60);
+      const l = personnes.filter(p => { const t = norm(nomComplet(p) + " " + (p.lieuNaissance || "")); return mots.every(m => t.includes(m)); }).sort(parNomDeFamille).slice(0, 60);
       return l.length ? l.map(p => ligneP(p, base.courant, [annees(p), p.lieuNaissance].filter(Boolean).join(" · "))).join("") : '<p class="doux">Aucune personne trouvée.</p>';
     }
 
@@ -1841,7 +1851,7 @@
 
     function formDemande(d) {
       const opts = (liste, cur) => liste.map(v => '<option' + (v === cur ? " selected" : "") + ">" + echapper(v) + "</option>").join("");
-      const pers = personnes.slice().sort((a, b) => nomComplet(a).localeCompare(nomComplet(b), "fr"));
+      const pers = personnes.slice().sort(parNomDeFamille);
       const p0 = d.personne && trouver(d.personne);
       return '<form id="demForm" class="demForm" autocomplete="off">' +
         '<div class="demGrille">' +
@@ -3163,8 +3173,7 @@
     }
 
     function htmlListe() {
-      const l = personnes.slice().sort((a, b) =>
-        (a.nom || "").localeCompare(b.nom || "", "fr") || (a.prenom || "").localeCompare(b.prenom || "", "fr"));
+      const l = personnes.slice().sort(parNomDeFamille);
       return '<table class="liste"><thead><tr><th>Nom</th><th>Prénom</th><th>Naissance</th><th>Lieu</th><th>Décès</th></tr></thead><tbody>' +
         l.map(p => '<tr class="sl' + (p.id === choix ? " on" : "") + '" data-id="' + p.id + '"><td>' + echapper((p.nom || "").toUpperCase()) +
           "</td><td>" + echapper(p.prenom || "") + "</td><td>" + echapper(dateLisible(p.naissance)) + "</td><td>" +
@@ -3787,9 +3796,9 @@
         const courant = $(k).value;
         const liste = personnes.filter(p =>
           p.id !== choix &&
-          (k === "pere" ? p.sexe !== "F" : k === "mere" ? p.sexe !== "H" : true));
+          (k === "pere" ? p.sexe !== "F" : k === "mere" ? p.sexe !== "H" : true)).sort(parNomDeFamille);
         $(k).innerHTML = '<option value="">—</option>' +
-          liste.map(p => '<option value="' + p.id + '">' + echapper(nomComplet(p)) + "</option>").join("");
+          liste.map(p => '<option value="' + p.id + '">' + echapper(nomListe(p)) + "</option>").join("");
         $(k).value = courant;
       }
     }
@@ -4266,7 +4275,7 @@
     $("rech").addEventListener("input", function () {
       const q = this.value.trim().toLowerCase(), z = $("resRech");
       if (!q) { z.hidden = true; return; }
-      const l = personnes.filter(p => nomComplet(p).toLowerCase().includes(q)).slice(0, 8);
+      const l = personnes.filter(p => norm(nomComplet(p)).includes(norm(q))).sort(parNomDeFamille).slice(0, 8);
       z.innerHTML = l.length
         ? l.map(p => '<button type="button" data-id="' + p.id + '">' + echapper(nomComplet(p)) + " <small>" + echapper(annees(p)) + "</small></button>").join("")
         : "<p>Aucun résultat dans cet arbre.</p>";
@@ -4308,6 +4317,7 @@
         if (lieu && ![p.lieuNaissance, p.lieuDeces, p.lieuMariage, p.lieuDivorce].some(l => norm(l).includes(lieu))) continue;
         res.push({ p: p, a: a });
       }
+      res.sort((x, y) => parNomDeFamille(x.p, y.p));
       z.innerHTML = res.length
         ? '<p class="doux">' + res.length + " résultat(s)</p><div class=\"grilleRes\">" + res.slice(0, 40).map(x =>
             ligneP(x.p, x.a.id, [annees(x.p), x.p.lieuNaissance, base.arbres.length > 1 ? "Arbre : " + x.a.nom : ""].filter(Boolean).join(" · "))).join("") + "</div>"
