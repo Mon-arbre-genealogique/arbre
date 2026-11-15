@@ -1212,28 +1212,71 @@
       b.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + "px";   // reste dans la fenêtre
       b.style.top = (r.bottom + 4) + "px";
     }
+    // Recherche de lieux : communes françaises (base officielle) ET villes étrangères (OpenStreetMap), en parallèle.
+    // Tous les lieux sont écrits sur le même modèle : « Ville, département (ou équivalent), région, pays ».
+    const cacheLieux = new Map();
     async function chercherCommunes(q) {
-      const res = [];
-      try {
-        const r = await fetch("https://geo.api.gouv.fr/communes?nom=" + encodeURIComponent(q) + "&fields=nom,departement,region,centre,codesPostaux&boost=population&limit=7");
-        if (r.ok) for (const c of await r.json()) {
-          const lib = [c.nom, c.departement && c.departement.nom, c.region && c.region.nom, "France"].filter(Boolean).join(", ");
-          res.push({ lib: lib, sous: (c.codesPostaux && c.codesPostaux[0] ? c.codesPostaux[0] + " · " : "") + (c.departement ? c.departement.nom + " (" + c.departement.code + ")" : ""),
-                     pt: c.centre ? [c.centre.coordinates[1], c.centre.coordinates[0]] : null });
-        }
-      } catch (e) {}
-      if (!res.length && q.length >= 3) {
-        // Rien en France : lieux à l'étranger (ou anciennes communes) via OpenStreetMap
+      const cle = norm(q.trim());
+      if (cacheLieux.has(cle)) return cacheLieux.get(cle);
+      const france = (async () => {
+        const res = [];
         try {
-          const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&accept-language=fr&q=" + encodeURIComponent(q));
-          if (r.ok) for (const x of await r.json()) {
-            const a = x.address || {}, ville = a.city || a.town || a.village || a.municipality || a.hamlet || x.name;
-            const lib = [ville, a.county || a.state_district, a.state, a.country].filter(Boolean).filter((v, i, t) => t.indexOf(v) === i).join(", ");
-            if (lib && !res.some(y => y.lib === lib)) res.push({ lib: lib, sous: "Hors de France ou lieu-dit", pt: [+x.lat, +x.lon] });
+          const r = await fetch("https://geo.api.gouv.fr/communes?nom=" + encodeURIComponent(q) + "&fields=nom,departement,region,centre,codesPostaux&boost=population&limit=7");
+          if (r.ok) for (const c of await r.json()) {
+            const lib = [c.nom, c.departement && c.departement.nom, c.region && c.region.nom, "France"].filter(Boolean).join(", ");
+            res.push({ lib: lib, ville: c.nom, pt: c.centre ? [c.centre.coordinates[1], c.centre.coordinates[0]] : null,
+                       sous: "France · " + (c.codesPostaux && c.codesPostaux[0] ? c.codesPostaux[0] + " · " : "") + (c.departement ? c.departement.nom + " (" + c.departement.code + ")" : "") });
           }
         } catch (e) {}
-      }
-      return res;
+        return res;
+      })();
+      const monde = (async () => {
+        const res = [];
+        if (q.trim().length < 3) return res;
+        try {
+          const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&accept-language=fr&q=" + encodeURIComponent(q));
+          const LOCALITES = ["city", "town", "village", "hamlet", "municipality", "isolated_dwelling", "locality"];
+          const ZONES = ["country", "state", "region", "province", "county", "state_district", "administrative", "island", "archipelago"];
+          if (r.ok) for (const x of await r.json()) {
+            const a = x.address || {}, t = x.addresstype || "";
+            if (!a.country || (!LOCALITES.includes(t) && !ZONES.includes(t))) continue;   // pas de rues, commerces, monuments…
+            let ville, parts, genre;
+            if (t === "country") {
+              // Un pays seul : « Afghanistan »
+              ville = a.country; parts = [a.country]; genre = "Pays";
+            } else if (ZONES.includes(t)) {
+              // Une région, province ou île : « Bavière, Allemagne », « Province de Kaboul, Afghanistan »
+              ville = x.name || a.state || a.county;
+              parts = [ville, t === "county" || t === "state_district" ? a.state || a.region : "", a.country];
+              genre = t === "island" || t === "archipelago" ? "Île" : "Région / province";
+            } else {
+              // Une ville ou un village : « Rome, Roma Capitale, Latium, Italie »
+              const commune = a.city || a.town || a.village || a.municipality || "";
+              const lieuDit = ["hamlet", "isolated_dwelling", "locality"].includes(t);
+              // Un hameau ou lieu-dit garde son propre nom, suivi de sa commune : « La Kabylie, Voutré, Mayenne… »
+              ville = lieuDit ? x.name || a.hamlet || commune : commune || a.hamlet || x.name;
+              parts = [ville, lieuDit ? commune : "", a.county || a.state_district || a.province || "", a.state || a.region || "", a.country];
+              genre = "";
+            }
+            if (!ville) continue;
+            parts = parts.filter(Boolean).filter((v, i, tt) => tt.indexOf(v) === i);
+            const reg = a.state || a.region || "";
+            res.push({ lib: parts.join(", "), ville: ville, pt: [+x.lat, +x.lon], fr: a.country_code === "fr" && !ZONES.includes(t),
+                       sous: a.country + (genre ? " · " + genre : reg && t !== "country" ? " · " + reg : "") + (a.country_code === "fr" && LOCALITES.includes(t) ? " · lieu-dit ou ancienne commune" : "") });
+          }
+        } catch (e) {}
+        return res;
+      })();
+      const [fr, mo] = await Promise.all([france, monde]);
+      // En France, la base officielle prime ; OpenStreetMap ne sert qu'aux lieux qu'elle ne connaît pas (lieux-dits, anciennes communes)
+      const villesFr = new Set(fr.map(x => norm(x.ville)));
+      const res = fr.concat(mo.filter(x => !(x.fr && villesFr.has(norm(x.ville)))));
+      const vus = new Set(), uniques = res.filter(x => !vus.has(x.lib) && vus.add(x.lib));
+      // Les noms identiques à ce qui est tapé passent en premier (« Rome » avant « Romenay »)
+      const exact = x => norm(x.ville) === cle ? 0 : norm(x.ville).startsWith(cle) ? 1 : 2;
+      const final = uniques.map((x, i) => ({ x: x, i: i })).sort((u, v) => exact(u.x) - exact(v.x) || u.i - v.i).map(u => u.x).slice(0, 9);
+      cacheLieux.set(cle, final);
+      return final;
     }
     function afficherSugg(items) {
       const b = boiteSugg();
@@ -1256,12 +1299,17 @@
       if (!el.matches || !el.matches("input[data-lieu]")) return;
       suggLieu.el = el;
       clearTimeout(suggLieu.minuteur);
-      const q = el.value.split(",")[0].trim();   // on cherche sur le nom de la commune
+      // On cherche sur le premier morceau qui est vraiment un lieu (« Evangelisch, Hessigheim… » → « Hessigheim »)
+      const morceaux = morceauxLieu(el.value).filter(seg => !paysAncien(seg) || morceauxLieu(el.value).length === 1);
+      const q = (morceaux[0] || "").trim();
       if (q.length < 2) { fermerSugg(); return; }
       suggLieu.minuteur = setTimeout(async () => {
-        const n = ++suggLieu.demande, items = await chercherCommunes(q);
+        const n = ++suggLieu.demande;
+        let items = await chercherCommunes(q);
+        // Rien trouvé : on essaie le morceau suivant (ancien nom de village, puis commune…)
+        for (let i = 1; !items.length && i < Math.min(morceaux.length, 3); i++) { await new Promise(x => setTimeout(x, 1000)); if (n !== suggLieu.demande) return; items = await chercherCommunes(morceaux[i]); }
         if (n === suggLieu.demande && document.activeElement === el) afficherSugg(items);
-      }, 300);
+      }, 400);
     });
     document.addEventListener("keydown", function (e) {
       const b = $("suggLieux");
@@ -3247,9 +3295,20 @@
 
     // ---------- Carte des lieux ----------
 
-    const CLE_GEO = "geo-cache-v1";
+    // Positions des lieux mémorisées sur cet appareil.
+    // v2 : les lieux français sont localisés par la base officielle des communes (avant, certains partaient en Suisse ou ailleurs).
+    const CLE_GEO = "geo-cache-v2";
     let geo = {};
-    try { geo = JSON.parse(localStorage.getItem(CLE_GEO) || "{}"); } catch (e) {}
+    try {
+      const v2 = localStorage.getItem(CLE_GEO);
+      if (v2) geo = JSON.parse(v2);
+      else {
+        // Reprise de l'ancien cache : on ne garde que les lieux qui précisent un pays étranger, les autres seront relocalisés
+        const v1 = JSON.parse(localStorage.getItem("geo-cache-v1") || "{}");
+        for (const k in v1) { const m = k.split(","); if (v1[k] && m.length > 1 && m[m.length - 1].trim() !== "france") geo[k] = v1[k]; }   // les « introuvables » sont retentés
+        localStorage.setItem(CLE_GEO, JSON.stringify(geo));
+      }
+    } catch (e) {}
     let carteLeaflet = null, coucheCarte = null, geoEnCours = false, geoBloque = false;
     const filtresCarte = { qui: "tous", type: "tous", periode: "toutes" };
     const PERIODES = { avant1800: [0, 1799], p1800: [1800, 1899], p1900: [1900, 1949], p1950: [1950, 3000] };
@@ -3470,6 +3529,89 @@
       }
     }
 
+    // ---------- Lieux anciens et textes de registres ----------
+    // Mots qui désignent une paroisse ou une église, pas un lieu (fréquents dans les GEDCOM allemands, alsaciens…)
+    const normLieu = t => norm(t).replace(/[-'’.]/g, " ").replace(/\s+/g, " ").trim();
+    const MOTS_PAROISSE = ["evangelisch", "evangelische", "evangelischen", "evang", "ev", "katholisch", "katholische", "kath", "rk", "rom kath",
+      "lutherisch", "reformiert", "ref", "protestant", "protestante", "catholique", "reforme", "reformee", "kirche", "pfarrei", "kirchspiel",
+      "paroisse", "eglise", "church", "parish", "temple", "synagogue", "standesamt", "etat civil"];
+    const estMotParoisse = seg => { const t = normLieu(seg); return MOTS_PAROISSE.includes(t) || /^(eglise|paroisse|pfarrei|kirche|church|parish|kirchspiel|standesamt) /.test(t); };
+    // Anciens États, provinces et cercles → pays actuel (code utilisé pour la recherche)
+    const ANCIENS_ETATS = {
+      "wurtemberg": "de", "wurttemberg": "de", "wuerttemberg": "de", "royaume de wurtemberg": "de", "konigreich wurttemberg": "de",
+      "neckarkreis": "de", "schwarzwaldkreis": "de", "jagstkreis": "de", "donaukreis": "de",
+      "bade": "de", "baden": "de", "grand duche de bade": "de", "grossherzogtum baden": "de",
+      "baviere": "de", "bayern": "de", "royaume de baviere": "de", "palatinat": "de", "pfalz": "de", "rheinpfalz": "de",
+      "prusse": "de", "preussen": "de", "royaume de prusse": "de", "rhenanie": "de", "rheinprovinz": "de", "westphalie": "de", "westfalen": "de",
+      "hanovre": "de", "hannover": "de", "saxe": "de", "sachsen": "de", "hesse": "de", "hessen": "de", "hesse darmstadt": "de", "hesse nassau": "de",
+      "nassau": "de", "thuringe": "de", "thuringen": "de", "mecklembourg": "de", "mecklenburg": "de", "holstein": "de", "schleswig": "de",
+      "empire allemand": "de", "deutsches reich": "de", "allemagne": "de", "deutschland": "de",
+      "alsace": "fr", "lorraine": "fr", "alsace lorraine": "fr", "elsass": "fr", "lothringen": "fr", "elsass lothringen": "fr",
+      "savoie": "fr", "duche de savoie": "fr", "comte de nice": "fr",
+      "autriche hongrie": "at", "boheme": "cz", "bohmen": "cz", "moravie": "cz", "galicie": "pl", "silesie": "pl", "posnanie": "pl",
+      "piemont": "it", "royaume de sardaigne": "it", "lombardie venetie": "it", "pays bas autrichiens": "be", "flandre": "be"
+    };
+    const paysAncien = seg => ANCIENS_ETATS[normLieu(seg)] || "";
+    // Morceaux qui sont vraiment des lieux (sans mots de paroisse ni anciens États)
+    const morceauxLieu = l => l.split(",").map(x => x.trim()).filter(Boolean).filter(seg => !estMotParoisse(seg));
+
+    // Position d'un lieu tapé librement. Un lieu sans pays, ou situé en France, est cherché d'abord dans la base
+    // officielle des communes françaises (en tenant compte du département ou de la région s'ils sont écrits) :
+    // « Bulle » ou « Villars » ne partent plus en Suisse. OpenStreetMap ne sert que pour l'étranger et les lieux-dits.
+    // Les textes de registres anciens (« Evangelisch, Hessigheim, Neckarkreis, Wurtemberg ») sont compris aussi.
+    async function geocoderLieu(l) {
+      const m = morceauxLieu(l);
+      if (!m.length) return { pt: null };
+      const n = normLieu;
+      const cc = m.map(paysAncien).find(Boolean) || "";      // pays déduit d'un ancien État (« Wurtemberg » → Allemagne)
+      const lieux = m.filter(seg => !paysAncien(seg));        // le reste : village, commune, département…
+      const dernier = n(m[m.length - 1]), autres = m.slice(1).map(n);
+      const zoneFr = t => !!(fondsGeo && (fondsGeo.depParNom[norm(t)] || fondsGeo.regParNom[norm(t)]));
+      const enFrance = cc === "fr" || (!cc && (m.length === 1 || dernier === "france" || zoneFr(m[m.length - 1]) || /^\d{5}$/.test(dernier)));
+      let osm = false;
+      const nominatim = async (q, pays) => {
+        osm = true;
+        const rep = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=fr" + (pays ? "&countrycodes=" + pays : "") + "&q=" + encodeURIComponent(q));
+        if (!rep.ok) throw new Error("http");
+        const d = await rep.json();
+        return d[0] ? [+d[0].lat, +d[0].lon] : null;
+      };
+      const pause = () => new Promise(ok => setTimeout(ok, 1100));
+      const premier = lieux[0] || m[0];
+      if (enFrance) {
+        try {
+          const rep = await fetch("https://geo.api.gouv.fr/communes?nom=" + encodeURIComponent(premier) + "&fields=nom,centre,departement,region&boost=population&limit=20");
+          if (rep.ok) {
+            const l2 = (await rep.json()).filter(c => c.centre && n(c.nom) === n(premier));
+            // Si un département ou une région est écrit, on prend la commune qui y est
+            const precis = l2.filter(c => autres.some(a => a === n(c.departement ? c.departement.nom : "") || a === n(c.region ? c.region.nom : "") || a === (c.departement ? c.departement.code : "")));
+            const c = (precis.length ? precis : autres.filter(a => a !== "france" && !ANCIENS_ETATS[a]).length ? [] : l2)[0];
+            if (c) return { pt: [c.centre.coordinates[1], c.centre.coordinates[0]] };
+          }
+        } catch (e) {}
+        // France écrite explicitement mais commune inconnue (lieu-dit, ancienne commune) : OpenStreetMap, limité à la France
+        if (m.length > 1) {
+          const p = await nominatim(lieux.length > 1 ? lieux[0] + ", " + lieux[1] : premier, "fr");
+          return { pt: p, osm: true };
+        }
+      }
+      // Étranger : on essaie du plus précis au plus simple (texte complet, sans les anciens États, puis chaque morceau seul)
+      const essais = [m.join(", ")];
+      if (lieux.length && lieux.length < m.length) essais.push(lieux.join(", "));
+      if (lieux.length > 1) essais.push(lieux[0] + ", " + lieux[lieux.length - 1]);
+      for (const seg of lieux) essais.push(seg);
+      const faits = new Set();
+      for (const q of essais) {
+        if (faits.has(q) || faits.size >= 4) continue;
+        if (faits.size) await pause();
+        faits.add(q);
+        // un morceau seul n'est cherché que dans le pays déduit (sinon « Hessigheim » pourrait tomber n'importe où)
+        const p = await nominatim(q, q === essais[0] ? "" : cc);
+        if (p) return { pt: p, osm: true };
+      }
+      return { pt: null, osm: osm };
+    }
+
     async function localiserLieux(lieux) {
       if (geoEnCours) return;
       geoEnCours = true;
@@ -3477,22 +3619,13 @@
       for (const l of lieux) {
         if (!$("carteBloc")) break;   // on a quitté la carte
         try {
-          const chercher = async q => {
-            const rep = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=fr&q=" + encodeURIComponent(q));
-            if (!rep.ok) throw new Error("http");
-            return rep.json();
-          };
-          let d = await chercher(l);
-          const morceaux = l.split(",").map(x => x.trim()).filter(Boolean);
-          if (!d[0] && morceaux.length > 2) {
-            await new Promise(ok => setTimeout(ok, 1100));
-            d = await chercher(morceaux[0] + ", " + morceaux[morceaux.length - 1]);
-          }
-          geo[cleLieu(l)] = d[0] ? [+d[0].lat, +d[0].lon] : null;
+          const g = await geocoderLieu(l);
+          geo[cleLieu(l)] = g.pt;
           try { localStorage.setItem(CLE_GEO, JSON.stringify(geo)); } catch (e) {}
           majCarteDouce(false);
+          // politesse envers OpenStreetMap (la base des communes françaises, elle, n'a pas besoin d'attente)
+          if (g.osm) await new Promise(ok => setTimeout(ok, 1100));
         } catch (e) { echec = true; break; }
-        await new Promise(ok => setTimeout(ok, 1100));   // politesse envers le service de localisation
       }
       geoEnCours = false;
       if (echec) geoBloque = true;
