@@ -529,6 +529,9 @@
     .fTable .fChoisi { background: #eefaf3; outline: 1px solid #bfe6cf; }
     .fTable .fEcarte { color: #9a90b0; text-decoration: line-through; }
     .fTable .fIdem { color: #5b5170; }
+    .fTable .fAussi { background: #f6f2fc; outline: 1px dashed #c9bbe8; }
+    .fTable .fDeux { width: 1%; white-space: nowrap; font-size: 13px; color: #5b5170; text-align: center; }
+    .fTable td.fDeux label { justify-content: center; }
     .fAvert { font-size: 13px; color: #a0522d; background: #fff6ec; border-radius: 8px; padding: 8px 10px; }
     @media (max-width: 640px) { .fTable tbody th { width: auto; } .fTable { font-size: 13px; } }
     .lienBtn { font: inherit; border: 0; background: none; padding: 0; color: var(--violet); text-decoration: underline; cursor: pointer; }
@@ -2291,23 +2294,27 @@
       const poids = p => personnes.filter(c => c.pere === p.id || c.mere === p.id).length * 3 + (p.docs || []).length + (p.notes || []).length + CHAMPS.filter(k => p[k]).length;
       if (!fusion || fusion.a !== aId || fusion.b !== bId) {
         if (poids(b) > poids(a)) [a, b] = [b, a];
-        fusion = { a: a.id, b: b.id, choix: {} };
+        fusion = { a: a.id, b: b.id, choix: {}, deux: {} };
         for (const [k] of CHAMPS_FUSION) fusion.choix[k] = choixParDefaut(a, b, k);
+        fusion.deux.union = !!(a.conjoint && b.conjoint && a.conjoint !== b.conjoint);
       } else { a = trouver(fusion.a); b = trouver(fusion.b); }
       const lignes = CHAMPS_FUSION.map(([k, lib]) => {
         const va = valeurFusion(a, k), vb = valeurFusion(b, k);
         if (!va && !vb) return "";
-        const pareil = va === vb, c = fusion.choix[k];
-        const cell = (cote, v) => '<td class="' + (pareil ? "fIdem" : c === cote ? "fChoisi" : "fEcarte") + '">' + (pareil ? echapper(v) :
+        const pareil = va === vb, c = fusion.choix[k], deuxPossible = !pareil && !!va && !!vb, deux = deuxPossible && fusion.deux[k];
+        const cell = (cote, v) => '<td class="' + (pareil ? "fIdem" : c === cote ? "fChoisi" : deux ? "fAussi" : "fEcarte") + '">' + (pareil ? echapper(v) :
           '<label><input type="radio" name="f_' + k + '" value="' + cote + '"' + (c === cote ? " checked" : "") + "> " + (v ? echapper(v) : '<span class="doux">(vide)</span>') + "</label>") + "</td>";
-        return "<tr><th>" + lib + "</th>" + cell("A", va) + cell("B", vb) + "</tr>";
+        const cellDeux = '<td class="fDeux">' + (deuxPossible ? '<label><input type="checkbox" name="d_' + k + '"' + (deux ? " checked" : "") + "> " +
+          (k === "union" ? "les 2 mariages" : "l’autre en note") + "</label>" : "") + "</td>";
+        return "<tr><th>" + lib + "</th>" + cell("A", va) + cell("B", vb) + cellDeux + "</tr>";
       }).join("");
       ouvrirDlg("Fusionner deux fiches",
         '<div id="fusion">' +
-        '<p class="doux">Pour chaque information différente, choisis celle à garder. Tout le reste est réuni dans une seule fiche : enfants, conjoints, photos, documents, notes, étiquettes et démarches.</p>' +
+        '<p class="doux">Pour chaque information différente, choisis celle à garder. Coche « les deux » pour ne rien perdre : deux mariages restent deux unions ; pour une autre info, l’autre valeur est gardée dans une note. Enfants, photos, documents, notes, étiquettes et démarches sont toujours réunis.</p>' +
         '<table class="fTable"><thead><tr><th></th>' +
           '<th>Fiche gardée<br><b>' + echapper(nomComplet(a)) + "</b><small>" + echapper(resumeFiche(a)) + "</small></th>" +
-          "<th>Fiche fusionnée puis supprimée<br><b>" + echapper(nomComplet(b)) + "</b><small>" + echapper(resumeFiche(b)) + "</small></th></tr></thead>" +
+          "<th>Fiche fusionnée puis supprimée<br><b>" + echapper(nomComplet(b)) + "</b><small>" + echapper(resumeFiche(b)) + "</small></th>" +
+          '<th class="fDeux">Garder<br><b>les deux</b></th></tr></thead>' +
         "<tbody>" + lignes + "</tbody></table>" +
         '<p class="fAvert">⚠ La fusion est définitive : la seconde fiche disparaît (ses informations, elles, sont conservées dans la première).</p>' +
         '<button type="button" class="action" data-fusionner>Fusionner en une seule personne</button>' +
@@ -2316,8 +2323,16 @@
         "</div>");
     }
 
-    function fusionner(a, b, choix) {
+    function fusionner(a, b, choix, deux) {
+      deux = deux || {};
       const val = (k) => choix[k] === "B" ? b[k] : a[k];
+      // Valeurs non retenues mais à garder : notées avant de modifier la fiche
+      const enNote = [];
+      for (const [k, lib] of CHAMPS_FUSION) {
+        if (k === "union" || !deux[k]) continue;
+        const v = valeurFusion(choix[k] === "B" ? a : b, k);
+        if (v) enNote.push(lib + " : " + v);
+      }
       // 1) Champs simples choisis
       for (const k of ["prenom", "nom", "sexe", "naissance", "lieuNaissance", "deces", "lieuDeces", "pere", "mere",
                        "armee", "unite", "grade", "periodeMilitaire", "matricule"]) a[k] = val(k) || "";
@@ -2328,11 +2343,25 @@
       const gardee = choix.union === "B" ? donnees(b) : donnees(a), autre = choix.union === "B" ? donnees(a) : donnees(b);
       Object.assign(a, gardee);
       a.unions = (a.unions || []).concat(b.unions || []);
-      if (autre.conjoint && autre.conjoint !== gardee.conjoint) a.unions.push({ avec: autre.conjoint, mariage: autre.mariage, lieuMariage: autre.lieuMariage, divorce: autre.divorce, lieuDivorce: autre.lieuDivorce });
+      if (autre.conjoint && autre.conjoint !== gardee.conjoint) {
+        if (deux.union) a.unions.push({ avec: autre.conjoint, mariage: autre.mariage, lieuMariage: autre.lieuMariage, divorce: autre.divorce, lieuDivorce: autre.lieuDivorce });
+        else {
+          // Mariage écarté : on retire le lien de conjoint de l'autre côté (les enfants communs, eux, restent)
+          const x = trouver(autre.conjoint);
+          if (x && (x.conjoint === a.id || x.conjoint === b.id)) { x.conjoint = ""; for (const k of CH_UNION) x[k] = ""; }
+          if (x) { retirerUnion(x, a.id); retirerUnion(x, b.id); }
+        }
+      } else if (deux.union && (autre.mariage || autre.lieuMariage || autre.divorce)) {
+        // Même conjoint mais autre date/lieu de mariage : gardé en note
+        enNote.push("Autre mariage avec " + nomComplet(trouver(autre.conjoint) || { prenom: "?", nom: "" }) + " : " +
+          [autre.mariage && dateLisible(autre.mariage), autre.lieuMariage, autre.divorce && "divorce " + dateLisible(autre.divorce)].filter(Boolean).join(", "));
+      }
       // 3) Documents, photo de profil, notes, étiquettes
       a.docs = (a.docs || []).concat(b.docs || []);
       if (!a.photoId && b.photoId) a.photoId = b.photoId;
       a.notes = (a.notes || []).concat(b.notes || []);
+      if (enNote.length) a.notes.push({ id: nouvelId(), date: new Date().toLocaleDateString("fr-FR"),
+        texte: "Autres informations gardées lors de la fusion de deux fiches :\n• " + enNote.join("\n• ") });
       a.etiquettes = [...new Set((a.etiquettes || []).concat(b.etiquettes || []))];
       for (const k of ["docs", "notes", "etiquettes"]) if (!a[k].length) delete a[k];
       // 4) Tout ce qui pointait vers B pointe maintenant vers A
@@ -2359,12 +2388,13 @@
     }
 
     $("dlgOutil").addEventListener("change", function (e) {
-      if (!fusion || !e.target.closest("#fusion") || !e.target.name || !e.target.name.startsWith("f_")) return;
-      fusion.choix[e.target.name.slice(2)] = e.target.value;
+      if (!fusion || !e.target.closest("#fusion") || !e.target.name || !/^[fd]_/.test(e.target.name)) return;
+      const k = e.target.name.slice(2);
+      if (e.target.name.startsWith("f_")) fusion.choix[k] = e.target.value; else fusion.deux[k] = e.target.checked;
       // On met juste la ligne à jour (pas de redessin : la fenêtre ne remonte pas)
-      e.target.closest("tr").querySelectorAll("td:not(.fIdem)").forEach(td => {
+      e.target.closest("tr").querySelectorAll("td:not(.fIdem):not(.fDeux)").forEach(td => {
         const r = td.querySelector("input");
-        td.className = r && r.checked ? "fChoisi" : "fEcarte";
+        td.className = r && r.checked ? "fChoisi" : fusion.deux[k] ? "fAussi" : "fEcarte";
       });
     });
     $("dlgOutil").addEventListener("click", function (e) {
@@ -2380,7 +2410,7 @@
         const a = trouver(fusion.a), b = trouver(fusion.b);
         if (!a || !b) return;
         if (!confirm("Fusionner « " + nomComplet(b) + " » dans « " + nomComplet(a) + " » ?\n\nLa seconde fiche sera supprimée. C'est définitif.")) return;
-        fusionner(a, b, fusion.choix);
+        fusionner(a, b, fusion.choix, fusion.deux);
         fusion = null;
         sauvegarder();
         ouvrir(a.id);
