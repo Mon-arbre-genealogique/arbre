@@ -463,6 +463,29 @@
     .suggItem:hover, .suggItem.actif { background: #f1ebfb; }
     .suggVide { padding: 8px 10px; font-size: 13px; color: #8a7fa3; }
     #dlgOutilCorps .demRech { margin-top: 14px; }
+    .demVues { display: flex; gap: 6px; margin-bottom: 10px; }
+    .demVues button { font: inherit; font-size: 14px; font-weight: 600; padding: 7px 14px; border-radius: 10px; border: 1px solid #d9d0ea; background: #fff; color: var(--violet); cursor: pointer; }
+    .demVues button.actif { background: var(--violet); color: #fff; border-color: var(--violet); }
+    #dlgOutilCorps h4.demGroupe { margin: 16px 0 2px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: #8a7fa3; border-bottom: 1px solid #ece6f3; padding-bottom: 4px; }
+    .bilan { border: 1px solid #ece6f3; border-radius: 12px; padding: 10px 12px; margin-top: 8px; }
+    .bilan.complet { background: #f3fbf6; border-color: #bfe6cf; }
+    .bilanTete { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 6px; font-size: 14px; }
+    .bilanOk { color: #23704a; font-weight: 700; }
+    .bilanFini { color: #6b5f86; font-weight: 600; }
+    .bilanManque { color: #a85f00; font-weight: 600; }
+    .bilanPuces { display: flex; flex-wrap: wrap; gap: 6px; }
+    .bilanPuce { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 16px; border: 1px solid #e3daf3; background: #fff; color: #4a3f66; }
+    button.bilanPuce { cursor: pointer; }
+    button.bilanPuce:hover { background: #f1ebfb; }
+    .bilanPuce small { color: #8a7fa3; }
+    .bilanPuce.s-recue { background: #eefaf3; border-color: #bfe6cf; color: #23704a; }
+    .bilanPuce.s-demandee { background: #fff6e8; border-color: #f3d7a6; }
+    .bilanPuce.s-aucun { border-style: dashed; }
+    .bilanPuce.s-question { border-style: dotted; color: #8a7fa3; background: #faf8fd; }
+    .bilanPuce.s-introuvable { background: #fdf1f5; border-color: #efcfdb; }
+    .demFiche .bilanPuces { margin-top: 4px; }
+    .demDetail { margin-top: 6px; font-size: 13px; }
+    .demDetail summary { cursor: pointer; color: var(--violet); }
     .demAide { font-weight: 400; font-size: 12px; min-height: 1em; }
     .demLibre { font-size: 13px; color: #4a3f66; }
     .demPuces { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -807,8 +830,14 @@
 
         <div class="groupe">
           <h3>Mariage / union</h3>
-          <label for="conjoint">Conjoint(e)</label>
+          <label for="conjoint">Conjoint(e) ou compagnon / compagne</label>
           <select id="conjoint"></select>
+          <label for="typeUnion">Type d’union</label>
+          <select id="typeUnion">
+            <option value="">Non précisé</option>
+            <option value="mariage">Mariés</option>
+            <option value="libre">Pas mariés (union libre)</option>
+          </select>
           <div class="deux">
             <div>
               <label for="mariage">Date du mariage</label>
@@ -907,7 +936,7 @@
     const CLE3 = "arbres-genealogiques-v3";
     const CHAMPS = ["prenom", "nom", "sexe", "naissance", "lieuNaissance",
                     "deces", "lieuDeces", "pere", "mere", "conjoint",
-                    "mariage", "lieuMariage", "divorce", "lieuDivorce",
+                    "mariage", "lieuMariage", "divorce", "lieuDivorce", "typeUnion",
                     "armee", "unite", "grade", "periodeMilitaire", "matricule"];
 
     // Lien de partage (…#partage=<jeton>) : mode lecture seule. Rien n'est lu ni écrit sur cet appareil ni dans le cloud.
@@ -1060,7 +1089,11 @@
     // L'union principale reste dans les champs conjoint / mariage / divorce ;
     // toutes les autres sont dans p.unions = [{ avec, mariage, lieuMariage, divorce, lieuDivorce }] (des deux côtés).
     const COUL_UNION = ["#7c5cd6", "#e0703f", "#1f9e8f", "#c2377a", "#b8860b"];
-    const CH_UNION = ["mariage", "lieuMariage", "divorce", "lieuDivorce"];
+    const CH_UNION = ["mariage", "lieuMariage", "divorce", "lieuDivorce", "typeUnion"];
+    // Type d'union : "mariage" (mariés, même sans date), "libre" (jamais mariés), "" (non précisé)
+    const estMarie = u => u.typeUnion === "mariage" || (u.typeUnion !== "libre" && !!(u.mariage || u.lieuMariage));
+    const libUnion = u => u.typeUnion === "libre" ? "Union libre" : estMarie(u) ? "Mariage" : "Union";
+    const OPTIONS_TYPE_UNION = [["", "Non précisé"], ["mariage", "Mariés"], ["libre", "Pas mariés (union libre)"]];
 
     function unionsDe(p) {
       const l = [], vus = new Set();
@@ -1118,11 +1151,15 @@
       return '<div class="union"><button type="button" class="retirer" data-retirer>Retirer</button>' +
         '<label>Autre conjoint(e) ou compagnon / compagne</label><select data-u="avec">' + opts + "</select>" +
         '<div class="deux">' + champ("mariage", "Date du mariage") + champ("lieuMariage", "Lieu") + "</div>" +
+        "<label>Type d’union</label><select data-u=\"typeUnion\">" + OPTIONS_TYPE_UNION.map(o => '<option value="' + o[0] + '"' + ((u.typeUnion || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select>" +
         '<div class="deux">' + champ("divorce", "Date du divorce / séparation") + champ("lieuDivorce", "Lieu") + "</div></div>";
     }
 
     function rendreUnions(p) {
-      $("autresUnions").innerHTML = ((p && p.unions) || []).map(ligneUnion).join("");
+      // Les couples connus seulement par leurs enfants apparaissent aussi, pour pouvoir préciser « mariés » ou « pas mariés »
+      const deduites = p ? unionsDe(p).filter(u => u.q.id !== p.conjoint && !(p.unions || []).some(x => x.avec === u.q.id))
+        .map(u => ({ avec: u.q.id, mariage: u.mariage, lieuMariage: u.lieuMariage, divorce: u.divorce, lieuDivorce: u.lieuDivorce, typeUnion: u.typeUnion })) : [];
+      $("autresUnions").innerHTML = ((p && p.unions) || []).concat(deduites).map(ligneUnion).join("");
       equiperDates($("autresUnions"));
     }
 
@@ -1369,8 +1406,9 @@
       let catM = nd("Mariage"), catD = nd("Divorce");   // les photos ne sont rattachées qu'à un seul événement
       for (const u of unions) {
         const m = u.mariage || u.lieuMariage, d = u.divorce || u.lieuDivorce;
-        if (m) { ajouter(u.mariage, "Mariage avec " + lienNom(u.q), [echapper(dl(u.mariage, u.lieuMariage))], true, catM ? "Mariage" : ""); catM = false; }
-        else if (!d && unions.length > 1) ajouter("", "Union avec " + lienNom(u.q), [], false, "");
+        if (m && u.typeUnion !== "libre") { ajouter(u.mariage, "Mariage avec " + lienNom(u.q), [echapper(dl(u.mariage, u.lieuMariage))], true, catM ? "Mariage" : ""); catM = false; }
+        else if (u.typeUnion === "mariage") { ajouter("", "Mariage avec " + lienNom(u.q), ["Date inconnue"], true, catM ? "Mariage" : ""); catM = false; }
+        else if (u.typeUnion === "libre" || (!d && unions.length > 1)) ajouter("", libUnion(u) + " avec " + lienNom(u.q), u.typeUnion === "libre" ? ["Pas mariés"] : [], false, "");
         if (d) { ajouter(u.divorce, "Divorce d’avec " + lienNom(u.q), [echapper(dl(u.divorce, u.lieuDivorce))], false, catD ? "Divorce" : ""); catD = false; }
       }
       if (catM) ajouter("", "Mariage", [], true, "Mariage");
@@ -1431,14 +1469,14 @@
         (liste.length ? liste.map(q => mini(q)).join("") : '<p class="doux">—</p>');
       let h = bloc("Parents", parents) + bloc("Frères et sœurs", fratrie);
       if (unions.length <= 1) {
-        h += bloc("Conjoint(e)", unions.map(u => u.q)) + bloc("Enfants", enfants);
+        h += bloc(unions[0] && unions[0].typeUnion === "libre" ? "Compagnon / compagne (pas mariés)" : "Conjoint(e)", unions.map(u => u.q)) + bloc("Enfants", enfants);
       } else {
         // Plusieurs unions : chacune a son bloc, avec ses propres enfants
         const classes = new Set();
         for (const u of unions) {
           const siens = enfants.filter(c => c.pere === u.q.id || c.mere === u.q.id);
           siens.forEach(c => classes.add(c.id));
-          h += '<div class="unionFam"><h3>Union avec ' + echapper(nomComplet(u.q)) + "</h3>" + mini(u.q) +
+          h += '<div class="unionFam"><h3>' + libUnion(u) + " avec " + echapper(nomComplet(u.q)) + (u.typeUnion === "libre" ? " (pas mariés)" : "") + "</h3>" + mini(u.q) +
             (texteUnion(u) ? '<p class="doux">' + echapper(texteUnion(u)) + "</p>" : "") +
             "<h3>Enfants de cette union</h3>" + (siens.length ? siens.map(mini).join("") : '<p class="doux">—</p>') + "</div>";
         }
@@ -1829,7 +1867,7 @@
       const mariage = /mariage/i.test(form.elements.acte.value);
       const bloc = form.querySelector(".demConj"), champ = form.elements.conjointNom;
       if (bloc) bloc.hidden = !mariage;
-      const p = personneDepuisTexte(form.elements.personneNom.value), us = p ? unionsChrono(p) : [];
+      const p = personneDepuisTexte(form.elements.personneNom.value), us = p ? unionsChrono(p).filter(u => u.typeUnion !== "libre") : [];
       const liste = form.querySelector("#demConjoints");
       if (liste) liste.innerHTML = (us.length ? us.map(u => u.q) : personnes).map(q => '<option value="' + echapper(libellePers(q)) + '"></option>').join("");
       // Un seul mariage connu : on le remplit d'office (sans écraser une saisie)
@@ -1902,9 +1940,78 @@
           '<div class="demAct"><button type="button" class="pBtn" data-dem-modif>Modifier</button><button type="button" class="pBtn danger" data-dem-suppr>Supprimer</button></div>' +
           "</div>";
       };
+      if (demVue === "personne") return htmlBilans(q);
+      // Regroupées par type d'acte : décès, naissance, mariage, puis les autres documents
+      const groupes = GROUPES_ACTES.map(([t, lib]) => ({ lib: lib, l: filtree.filter(d => typeActe(d.acte) === t) })).filter(g => g.l.length);
       return "<h3>" + (demFiltre === "tous" ? "Toutes les demandes" : PUCES_DEM().find(s => s[0] === demFiltre)[1]) + " (" + filtree.length + ")</h3>" +
-        (filtree.length ? filtree.map(ligne).join("") : '<p class="doux">' +
+        (filtree.length ? groupes.map(g => '<h4 class="demGroupe">' + g.lib + " <small>(" + g.l.length + ")</small></h4>" + g.l.map(ligne).join("")).join("") : '<p class="doux">' +
           (!liste.length ? "Aucune démarche pour l’instant. Ajoute ta première demande d’acte." : q ? "Aucune demande ne correspond à ta recherche." : "Aucune demande dans cette catégorie.") + "</p>");
+    }
+
+    // ---------- Bilan des actes par personne ----------
+    const GROUPES_ACTES = [["deces", "Décès"], ["naissance", "Naissance"], ["mariage", "Mariage"], ["autre", "Autres documents"]];
+    // Un baptême vaut acte de naissance, une inhumation vaut acte de décès (registres anciens)
+    const typeActe = a => /naissance|baptême/i.test(a || "") ? "naissance" : /mariage/i.test(a || "") ? "mariage" : /décès|inhumation/i.test(a || "") ? "deces" : "autre";
+    const RANG_STATUT = { recue: 4, demandee: 3, a_demander: 2, introuvable: 1 };
+    const meilleurStatut = l => l.reduce((m, d) => !m || (RANG_STATUT[d.statut] || 0) > (RANG_STATUT[m] || 0) ? d.statut : m, null);
+    const ICONE_STATUT = { recue: ["✔", "reçu"], demandee: ["⏳", "demandé"], a_demander: ["📝", "à demander"], introuvable: ["✗", "introuvable"] };
+    let demVue = "document", bilanFiltre = "tous";
+
+    // Actes attendus pour une personne : naissance, un acte par mariage connu, décès si décédée
+    function dossierActes(p) {
+      const ds = demandes().filter(d => d.personne === p.id || d.conjointId === p.id);
+      const items = [];
+      items.push({ lib: "Naissance", statut: meilleurStatut(ds.filter(d => d.personne === p.id && typeActe(d.acte) === "naissance")), acte: "Acte de naissance" });
+      const dsMar = ds.filter(d => typeActe(d.acte) === "mariage"), pris = new Set();
+      const mariages = unionsChrono(p).filter(estMarie);
+      for (const u of mariages) {
+        const l = dsMar.filter(d => (d.personne === p.id && d.conjointId === u.q.id) || (d.personne === u.q.id && d.conjointId === p.id));
+        l.forEach(d => pris.add(d));
+        items.push({ lib: "Mariage avec " + nomComplet(u.q) + (annee(u.mariage) ? " (" + annee(u.mariage) + ")" : ""), statut: meilleurStatut(l), acte: "Acte de mariage", conj: u.q.id });
+      }
+      // Demandes de mariage sans conjoint reconnu : rattachées aux mariages encore sans demande, sinon listées à part
+      const libres = dsMar.filter(d => !pris.has(d) && d.personne === p.id);
+      for (const it of items) if (it.acte === "Acte de mariage" && !it.statut && libres.length) it.statut = libres.shift().statut;
+      for (const d of libres) items.push({ lib: "Mariage" + (nomConjDemande(d) ? " avec " + nomConjDemande(d) : ""), statut: d.statut, acte: "Acte de mariage" });
+      // Couples dont on ne sait pas s'ils étaient mariés : signalés à préciser, sans compter comme manquants
+      for (const u of unionsChrono(p).filter(u => !estMarie(u) && u.typeUnion !== "libre"))
+        if (!items.some(i => i.conj === u.q.id)) items.push({ lib: "Avec " + nomComplet(u.q) + " : mariés ?", statut: "question", info: true });
+      if (estDecede(p)) items.push({ lib: "Décès", statut: meilleurStatut(ds.filter(d => d.personne === p.id && typeActe(d.acte) === "deces")), acte: "Acte de décès" });
+      const manque = items.filter(i => !i.info && i.statut !== "recue");
+      return { items: items, complet: !manque.length, termine: manque.every(i => i.statut === "introuvable"), manque: manque };
+    }
+    const etatDossier = b => b.complet ? '<span class="bilanOk">✔ Dossier complet</span>'
+      : b.termine ? '<span class="bilanFini">Terminé · introuvable : ' + echapper(b.manque.map(i => i.lib).join(", ")) + "</span>"
+      : (n => '<span class="bilanManque">⚠ Il manque ' + b.manque.length + " acte" + (b.manque.length > 1 ? "s" : "") +
+          (n ? " (" + n + " pas encore demandé" + (n > 1 ? "s" : "") + ")" : "") + "</span>")(b.manque.filter(i => !i.statut).length);
+    const pucesDossier = (p, b) => '<div class="bilanPuces">' + b.items.map(i => {
+      if (i.info) return '<span class="bilanPuce s-question" title="Précise le type d’union dans la fiche (Modifier) : Mariés ou Pas mariés">? ' + echapper(i.lib) + " <small>à préciser</small></span>";
+      const ic = i.statut ? ICONE_STATUT[i.statut] : ["○", "pas demandé"];
+      const att = i.statut === "recue" ? "" : ' data-dem-pour="' + p.id + "|" + echapper(i.acte) + "|" + (i.conj || "") + '" title="Créer la demande"';
+      return '<' + (att ? 'button type="button"' : "span") + ' class="bilanPuce s-' + (i.statut || "aucun") + '"' + att + ">" + ic[0] + " " + echapper(i.lib) + " <small>" + ic[1] + "</small></" + (att ? "button" : "span") + ">";
+    }).join("") + "</div>";
+
+    function htmlBilans(q) {
+      // Les personnes pour qui une demande a été faite (le conjoint d'un acte de mariage voit l'acte dans sa fiche)
+      const ids = new Set(); for (const d of demandes()) if (d.personne) ids.add(d.personne);
+      const tous = [...ids].map(trouver).filter(Boolean).sort(parNomDeFamille).map(p => ({ p: p, b: dossierActes(p) }));
+      const l = tous.filter(x => (bilanFiltre === "tous" || (bilanFiltre === "complets" ? x.b.complet || x.b.termine : !x.b.complet && !x.b.termine)) &&
+        (!q || q.split(/\s+/).every(m => norm(nomComplet(x.p)).includes(m))));
+      const nbC = tous.filter(x => x.b.complet || x.b.termine).length;
+      const puce = (v, lib, n, c) => '<button type="button" data-dem-bilan="' + v + '" class="' + (bilanFiltre === v ? "actif" : "") + '" style="--c:' + c + '">' + lib + " <b>" + n + "</b></button>";
+      return '<div class="demPuces">' + puce("tous", "Tout le monde", tous.length, "#7b66c6") + puce("incomplets", "Il manque des actes", tous.length - nbC, "#d98a1c") + puce("complets", "Dossiers complets", nbC, "#2e9a5e") + "</div>" +
+        '<p class="doux">Pour chaque personne : naissance, un acte par mariage, et décès si elle est décédée. Clique sur un acte manquant pour le demander.</p>' +
+        (l.length ? l.map(x => '<div class="bilan' + (x.b.complet ? " complet" : "") + '"><div class="bilanTete"><button type="button" class="demPers" data-cible="' + x.p.id + '">' +
+          echapper(nomComplet(x.p)) + "</button> " + etatDossier(x.b) + "</div>" + pucesDossier(x.p, x.b) + "</div>").join("")
+          : '<p class="doux">' + (tous.length ? "Personne dans cette catégorie." : "Aucune démarche pour l’instant.") + "</p>");
+    }
+
+    // « pid|acte|conjoint » → formulaire de demande déjà rempli (mairie du bon lieu, conjoint pour un mariage)
+    function preparerDemande(code) {
+      const [pid, acte, conj] = code.split("|"), p = trouver(pid);
+      const u = conj && p && unionsDe(p).find(x => x.q.id === conj);
+      demEdition = { personne: pid, acte: acte, conjointId: conj || "", moyen: MOYENS[0], statut: "a_demander",
+        organisme: organismePropose(p, acte, u && u.lieuMariage ? u.lieuMariage : undefined) };
     }
 
     function dlgDemarches(pourId) {
@@ -1913,8 +2020,10 @@
       const compte = s => liste.filter(d => s === "tous" || (s === "relance" ? aRelancer(d) : d.statut === s)).length;
       ouvrirDlg("Démarches : actes demandés",
         '<div id="demarches">' +
-        '<div class="demPuces">' + PUCES_DEM().map(s => '<button type="button" data-dem-filtre="' + s[0] + '" class="' + (demFiltre === s[0] ? "actif" : "") + '" style="--c:' + s[2] + '">' +
-          s[1] + " <b>" + compte(s[0]) + "</b></button>").join("") + "</div>" +
+        '<div class="demVues" role="tablist"><button type="button" data-dem-vue="document" class="' + (demVue === "document" ? "actif" : "") + '">📄 Par acte</button>' +
+          '<button type="button" data-dem-vue="personne" class="' + (demVue === "personne" ? "actif" : "") + '">👤 Par personne (bilan)</button></div>' +
+        (demVue === "document" ? '<div class="demPuces">' + PUCES_DEM().map(s => '<button type="button" data-dem-filtre="' + s[0] + '" class="' + (demFiltre === s[0] ? "actif" : "") + '" style="--c:' + s[2] + '">' +
+          s[1] + " <b>" + compte(s[0]) + "</b></button>").join("") + "</div>" : "") +
         (demEdition ? "<h3>" + (demEdition.id ? "Modifier la demande" : "Nouvelle demande") + "</h3>" + formDemande(demEdition)
                     : '<button type="button" class="action" data-dem-nouvelle>+ Nouvelle demande</button>') +
         (liste.length ? '<input type="search" id="demRech" class="demRech" placeholder="Rechercher un prénom, un nom, un acte, une mairie…" aria-label="Rechercher dans les démarches" value="' + echapper(demRecherche) + '">' : "") +
@@ -1972,7 +2081,10 @@
       const t = e.target.closest("button");
       if (!t) return;
       const ligne = t.closest("[data-dem]"), d = ligne && demandes().find(x => x.id === ligne.dataset.dem);
-      if (t.dataset.demFiltre) { demFiltre = t.dataset.demFiltre; dlgDemarches(); }
+      if (t.dataset.demVue) { demVue = t.dataset.demVue; dlgDemarches(); }
+      else if (t.dataset.demBilan) { bilanFiltre = t.dataset.demBilan; $("demListe").innerHTML = htmlListeDem(); }
+      else if (t.dataset.demPour) { preparerDemande(t.dataset.demPour); dlgDemarches(); $("dlgOutilCorps").scrollTop = 0; }
+      else if (t.dataset.demFiltre) { demFiltre = t.dataset.demFiltre; dlgDemarches(); }
       else if (t.hasAttribute("data-dem-nouvelle")) { demEdition = { acte: ACTES[0], moyen: MOYENS[0], statut: "a_demander", personne: "" }; dlgDemarches(); }
       else if (t.hasAttribute("data-dem-annuler")) { demEdition = null; dlgDemarches(); }
       else if (t.hasAttribute("data-dem-modif") && d) { demEdition = Object.assign({}, d); dlgDemarches(); $("dlgOutilCorps").scrollTop = 0; }
@@ -2010,9 +2122,11 @@
       const items = l.map(d => '<li><span class="demPastille" style="background:' + coulStatut(d.statut) + '"></span>' + echapper(d.acte) +
         (nomConjDemande(d) && d.conjointId !== p.id ? " avec " + echapper(nomConjDemande(d)) : d.conjointId === p.id && trouver(d.personne) ? " avec " + echapper(nomComplet(trouver(d.personne))) : "") +
         ' <small class="doux">— ' + echapper(libStatut(d.statut)) + (aRelancer(d) ? ", à relancer" : "") + "</small></li>").join("");
-      return '<div class="demFiche"><div class="demFicheTete"><b>📬 Démarches' + (l.length ? " (" + l.length + ")" : "") + "</b>" +
+      const b = dossierActes(p);
+      return '<div class="demFiche"><div class="demFicheTete"><b>📬 Actes' + (l.length ? " (" + l.length + " demande" + (l.length > 1 ? "s" : "") + ")" : "") + "</b>" +
         '<button type="button" class="pBtn" data-dem-ouvrir="' + p.id + '">+ Demander un acte</button></div>' +
-        (items ? "<ul>" + items + "</ul>" : "") + "</div>";
+        (l.length ? '<div class="bilanTete">' + etatDossier(b) + "</div>" : "") + pucesDossier(p, b) +
+        (items ? '<details class="demDetail"><summary>Voir les demandes</summary><ul>' + items + "</ul></details>" : "") + "</div>";
     }
 
     // ---------- Vérification de l'arbre : erreurs probables et suggestions de corrections ----------
@@ -2442,12 +2556,12 @@
       if (a.pere === a.id || a.pere === b.id) a.pere = "";
       if (a.mere === a.id || a.mere === b.id) a.mere = "";
       // 2) Union principale choisie ; l'autre devient une « autre union » (rien n'est perdu)
-      const donnees = p => ({ conjoint: p.conjoint || "", mariage: p.mariage || "", lieuMariage: p.lieuMariage || "", divorce: p.divorce || "", lieuDivorce: p.lieuDivorce || "" });
+      const donnees = p => ({ conjoint: p.conjoint || "", mariage: p.mariage || "", lieuMariage: p.lieuMariage || "", divorce: p.divorce || "", lieuDivorce: p.lieuDivorce || "", typeUnion: p.typeUnion || "" });
       const gardee = choix.union === "B" ? donnees(b) : donnees(a), autre = choix.union === "B" ? donnees(a) : donnees(b);
       Object.assign(a, gardee);
       a.unions = (a.unions || []).concat(b.unions || []);
       if (autre.conjoint && autre.conjoint !== gardee.conjoint) {
-        if (deux.union) a.unions.push({ avec: autre.conjoint, mariage: autre.mariage, lieuMariage: autre.lieuMariage, divorce: autre.divorce, lieuDivorce: autre.lieuDivorce });
+        if (deux.union) a.unions.push({ avec: autre.conjoint, mariage: autre.mariage, lieuMariage: autre.lieuMariage, divorce: autre.divorce, lieuDivorce: autre.lieuDivorce, typeUnion: autre.typeUnion });
         else {
           // Mariage écarté : on retire le lien de conjoint de l'autre côté (les enfants communs, eux, restent)
           const x = trouver(autre.conjoint);
@@ -4009,6 +4123,7 @@
         o.lieuMariage = p.lieuMariage;
         o.divorce = p.divorce;
         o.lieuDivorce = p.lieuDivorce;
+        o.typeUnion = p.typeUnion;
       }
 
       // Les autres unions (autres maris, autres compagnons…) : enregistrées des deux côtés
@@ -4130,6 +4245,7 @@
     $("vueFiche").addEventListener("click", function (e) {
       const bt = e.target.closest("button");
       if (bt && bt.dataset.demOuvrir) { dlgDemarches(bt.dataset.demOuvrir); return; }
+      if (bt && bt.dataset.demPour) { demVue = "document"; preparerDemande(bt.dataset.demPour); dlgDemarches(); return; }
       if (bt && bt.dataset.menuev) {
         const m = bt.nextElementSibling, etaitOuvert = !m.hidden;
         fermerMenus();
