@@ -278,7 +278,14 @@
     .ligneArbre .act button.danger { color: #d0556a; border-color: #d0556a; }
     .dlgPied { padding: 6px 22px 14px; }
 
+    #titreImpression { display: none; }
     @media print {
+      body.impression #titreImpression { display: block; font-size: 16px; font-weight: 700; color: #2f2547; margin: 0 0 8px; }
+      body.impression #arbre.pedigree { overflow: visible; min-height: 0; border: 0; box-shadow: none; }
+      body.impression #filAriane, body.impression .ph, body.impression .chev, body.impression #bandeauLecture,
+      body.impression .teteZone, body.impression #zoneArbre > :not(#arbre):not(#titreImpression) { display: none !important; }
+      body.impression #zoneArbre { box-shadow: none; padding: 0; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       #haut, #fiche, #formats, #outils, .zoomCtl, .aideDrag, .lien-btn { display: none !important; }
       #arbre.pedigree { height: 90vh; }
       #page { display: block; padding: 0; }
@@ -746,6 +753,7 @@
       </div>
       <div id="formats" role="toolbar" aria-label="Format d’affichage"></div>
       <nav id="filAriane" aria-label="Parcours dans l’arbre" hidden></nav>
+      <div id="titreImpression"></div>
       <div id="arbre"></div>
     </main>
 
@@ -1608,6 +1616,7 @@
     }
 
     function vueCentre(zone, tout) {
+      if (document.body.classList.contains("impression")) return;   // l'arbre est déjà mis à l'échelle de la feuille
       const i = mondeInfo, cw = zone.clientWidth, ch = zone.clientHeight;
       if (!i || !cw || !ch) return;
       if (tout) {
@@ -2814,6 +2823,93 @@
         '<p class="doux">Plus il y a de générations, plus l’arbre est large : déplacez-le à la souris et zoomez avec la molette.</p>');
     }
 
+    // ---------- Impression : choix de la vue, du nombre de générations et de la feuille ----------
+    const FEUILLES = { "A4p": ["A4 paysage", "A4 landscape", 1047, 718], "A4": ["A4 portrait", "A4 portrait", 718, 1047],
+                       "A3p": ["A3 paysage", "A3 landscape", 1436, 1047], "A3": ["A3 portrait", "A3 portrait", 1047, 1436] };
+    let optImpr = null;
+
+    function dlgImpression() {
+      const R = base.reglages, p = racineVue();
+      if (!p) { dire("Ouvre d’abord une personne de l’arbre."); return; }
+      optImpr = optImpr || { mode: "asc", asc: R.asc, desc: Math.max(1, R.desc), fratrie: R.fratrie, conjoint: R.conjoint, feuille: "A4p" };
+      const o = optImpr;
+      const sel = (id, vals, cur) => '<select id="' + id + '">' + vals.map(v => '<option value="' + v[0] + '"' + (String(v[0]) === String(cur) ? " selected" : "") + ">" + v[1] + "</option>").join("") + "</select>";
+      const gen = n => [...Array(n)].map((_, i) => [i + 1, (i + 1) + " génération" + (i ? "s" : "")]);
+      ouvrirDlg("Imprimer l’arbre",
+        '<div id="impr">' +
+        '<p>À partir de <b>' + echapper(nomComplet(p)) + "</b>" + (annees(p) ? " (" + echapper(annees(p)) + ")" : "") + '. <span class="doux">Pour partir d’une autre personne, ouvre sa fiche avant d’imprimer.</span></p>' +
+        '<div class="reglage"><label for="imMode">Ce qu’il faut imprimer</label>' +
+          sel("imMode", [["asc", "Ses ancêtres (ascendants)"], ["desc", "Ses descendants"], ["tout", "Ancêtres et descendants"]], o.mode) + "</div>" +
+        '<div class="reglage" data-im="asc"><label for="imAsc">Générations d’ancêtres</label>' + sel("imAsc", gen(8), o.asc) + "</div>" +
+        '<div class="reglage" data-im="desc"><label for="imDesc">Générations de descendants</label>' + sel("imDesc", gen(5), o.desc) + "</div>" +
+        '<div class="reglage"><label for="imFr">Frères et sœurs</label><input type="checkbox" id="imFr"' + (o.fratrie ? " checked" : "") + "></div>" +
+        '<div class="reglage"><label for="imCj">Conjoint(s)</label><input type="checkbox" id="imCj"' + (o.conjoint ? " checked" : "") + "></div>" +
+        '<div class="reglage"><label for="imFeuille">Feuille</label>' + sel("imFeuille", Object.keys(FEUILLES).map(k => [k, FEUILLES[k][0]]), o.feuille) + "</div>" +
+        '<p class="doux" id="imConseil"></p>' +
+        '<button type="button" class="action" id="imGo">🖨 Imprimer</button>' +
+        "</div>");
+      majDlgImpression();
+    }
+    function majDlgImpression() {
+      const o = optImpr, m = $("imMode").value;
+      document.querySelector('[data-im="asc"]').hidden = m === "desc";
+      document.querySelector('[data-im="desc"]').hidden = m === "asc";
+      // Estimation de la largeur : 2^(générations) ancêtres sur la dernière ligne
+      const asc = m === "desc" ? 0 : +$("imAsc").value;
+      const larg = Math.pow(2, asc);
+      $("imConseil").textContent = asc >= 6 ? "⚠ " + larg + " ancêtres possibles sur la dernière ligne : sur une seule feuille le texte sera très petit. Préfère l’A3 paysage, ou moins de générations."
+        : asc === 5 ? "Conseil : 5 générations tiennent mieux en paysage (A4 ou A3)." : "L’arbre est réduit automatiquement pour tenir sur une feuille.";
+    }
+
+    function imprimerArbre() {
+      const o = optImpr, R = base.reglages, sauve = Object.assign({}, R), vueAvant = vue;
+      // Réglages temporaires pour l'impression (les tiens reviennent juste après)
+      R.asc = o.mode === "desc" ? 0 : +o.asc;
+      R.desc = o.mode === "asc" ? 0 : +o.desc;
+      R.fratrie = o.fratrie; R.conjoint = o.conjoint;
+      vue = "arbre";
+      document.body.classList.add("impression");
+      afficherArbre();
+      const monde = $("monde"), fe = FEUILLES[o.feuille] || FEUILLES.A4p;
+      const p = racineVue();
+      $("titreImpression").textContent = (o.mode === "desc" ? "Descendants de " : o.mode === "tout" ? "Ancêtres et descendants de " : "Ancêtres de ") + nomComplet(p) +
+        " — " + (o.mode !== "desc" ? R.asc + " génération" + (R.asc > 1 ? "s" : "") + " d’ancêtres" : "") + (o.mode === "tout" ? ", " : "") +
+        (o.mode !== "asc" ? R.desc + " génération" + (R.desc > 1 ? "s" : "") + " de descendants" : "");
+      if (monde) {
+        const W = parseFloat(monde.style.width), H = parseFloat(monde.style.height);
+        const k = Math.min(1, fe[2] / W, (fe[3] - 40) / H);   // réduit pour tenir sur la feuille (40 px pour le titre)
+        monde.style.transform = "scale(" + k + ")";
+        $("arbre").style.height = Math.ceil(H * k) + "px";
+        $("arbre").style.width = Math.ceil(W * k) + "px";
+      }
+      let st = $("stylePage");
+      if (!st) { st = document.createElement("style"); st.id = "stylePage"; document.head.appendChild(st); }
+      st.textContent = "@page { size: " + fe[1] + "; margin: 10mm; }";
+      const fin = () => {
+        window.removeEventListener("afterprint", fin);
+        document.body.classList.remove("impression");
+        $("arbre").style.height = ""; $("arbre").style.width = "";
+        Object.assign(R, sauve);
+        vue = vueAvant;
+        afficherArbre();
+      };
+      window.addEventListener("afterprint", fin);
+      setTimeout(() => window.print(), 60);
+    }
+
+    $("dlgOutil").addEventListener("change", function (e) {
+      if (!e.target.closest("#impr")) return;
+      const o = optImpr;
+      o.mode = $("imMode").value; o.asc = +$("imAsc").value; o.desc = +$("imDesc").value;
+      o.fratrie = $("imFr").checked; o.conjoint = $("imCj").checked; o.feuille = $("imFeuille").value;
+      majDlgImpression();
+    });
+    $("dlgOutil").addEventListener("click", function (e) {
+      if (e.target.id !== "imGo") return;
+      this.close();
+      imprimerArbre();
+    });
+
     function actionOutil(o) {
       if (o === "recherche") {
         ouvrirDlg("Rechercher une personne", '<input type="search" id="qDlg" placeholder="Nom, prénom ou commune…" autocomplete="off"><div id="resDlg">' + resultatsRecherche("") + "</div>");
@@ -2822,7 +2918,7 @@
       else if (o === "demarches") { demEdition = null; dlgDemarches(); }
       else if (o === "verifier") { verifFiltre = "tous"; dlgVerifier(); }
       else if (o === "parente") dlgParente();
-      else if (o === "imprimer") window.print();
+      else if (o === "imprimer") dlgImpression();
       else if (o === "listes") { vue = "liste"; base.vue = "liste"; sauvegarderBase(); afficherArbre(); }
       else if (o === "reglages") dlgReglages();
     }
@@ -4406,7 +4502,7 @@
       if (e.target.dataset.xl) { basculerXL(true); return; }
       const v = e.target.dataset.v;
       if (!v) return;
-      if (v === "imprimer") { window.print(); return; }
+      if (v === "imprimer") { dlgImpression(); return; }
       if (ficheXL) basculerXL(false, true);
       vue = v;
       base.vue = v;
@@ -4485,7 +4581,7 @@
     function recadrerVue() {
       clearTimeout(minuteurRedim);
       minuteurRedim = setTimeout(function () {
-        if (pageCourante !== "arbre") return;
+        if (pageCourante !== "arbre" || document.body.classList.contains("impression")) return;
         if ($("monde")) vueCentre($("arbre"), false);
         if (carteLeaflet) carteLeaflet.invalidateSize();
       }, 90);
