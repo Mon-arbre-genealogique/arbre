@@ -279,7 +279,29 @@
     .dlgPied { padding: 6px 22px 14px; }
 
     #titreImpression { display: none; }
+    #tuilesImpression { display: none; }
+    .imEstim { font-size: 14px; color: #4a3f66; background: #f6f2fc; border-radius: 8px; padding: 8px 10px; }
     @media print {
+      /* Plusieurs feuilles : on n'imprime que les feuilles découpées */
+      body.impressionMulti > *:not(#tuilesImpression) { display: none !important; }
+      body.impressionMulti { background: #fff !important; }
+      body.impressionMulti #tuilesImpression { display: block; }
+      .tuile { position: relative; overflow: hidden; break-after: page; page-break-after: always; box-sizing: border-box; }
+      .tuile:last-child { break-after: auto; page-break-after: auto; }
+      .tuileVue { position: relative; overflow: hidden; }
+      .tuileVue > div { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+      .tuileVue svg, .planMonde svg { position: absolute; left: 0; top: 0; overflow: visible; }
+      .tuileVue .nd, .planMonde .nd { position: absolute; width: 112px; }
+      .tuileVue .ph, .tuileVue .chev, .planMonde .ph, .planMonde .chev { display: none !important; }
+      .bandeColle { position: absolute; background: repeating-linear-gradient(45deg, rgba(120,110,150,.10) 0 6px, rgba(120,110,150,.20) 6px 12px); }
+      .bandeColle.droite { top: 0; right: 0; bottom: 0; }
+      .bandeColle.bas { left: 0; right: 0; bottom: 0; }
+      .tuilePied { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; font: 12px sans-serif; color: #2f2547; border-top: 1px dashed #b9add4; padding-top: 4px; }
+      .tuile.plan h1 { font-size: 18px; margin: 0 0 4px; }
+      .tuile.plan p { font-size: 12px; margin: 0 0 10px; }
+      .planArbre { position: relative; }
+      .planMonde > div { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+      .planCase { position: absolute; box-sizing: border-box; border: 1.5px solid #6c58b8; color: #6c58b8; font: bold 16px sans-serif; display: flex; align-items: center; justify-content: center; background: rgba(108,88,184,.06); }
       body.impression #titreImpression { display: block; font-size: 16px; font-weight: 700; color: #2f2547; margin: 0 0 8px; }
       body.impression #arbre.pedigree { overflow: visible; min-height: 0; border: 0; box-shadow: none; }
       body.impression #filAriane, body.impression .ph, body.impression .chev, body.impression #bandeauLecture,
@@ -2823,15 +2845,18 @@
         '<p class="doux">Plus il y a de générations, plus l’arbre est large : déplacez-le à la souris et zoomez avec la molette.</p>');
     }
 
-    // ---------- Impression : choix de la vue, du nombre de générations et de la feuille ----------
+    // ---------- Impression : choix de la vue, du nombre de générations, de la feuille et de la mise en page ----------
+    // Zone imprimable en pixels CSS (96 ppp) : feuille moins 10 mm de marge de chaque côté
     const FEUILLES = { "A4p": ["A4 paysage", "A4 landscape", 1047, 718], "A4": ["A4 portrait", "A4 portrait", 718, 1047],
                        "A3p": ["A3 paysage", "A3 landscape", 1436, 1047], "A3": ["A3 portrait", "A3 portrait", 1047, 1436] };
+    const CHEVAUCHEMENT = 24;    // bande commune entre deux feuilles voisines, pour coller
+    const BAS_TUILE = 30;        // bas de chaque feuille réservé au numéro et aux repères
     let optImpr = null;
 
     function dlgImpression() {
       const R = base.reglages, p = racineVue();
       if (!p) { dire("Ouvre d’abord une personne de l’arbre."); return; }
-      optImpr = optImpr || { mode: "asc", asc: R.asc, desc: Math.max(1, R.desc), fratrie: R.fratrie, conjoint: R.conjoint, feuille: "A4p" };
+      optImpr = optImpr || { mode: "asc", asc: R.asc, desc: Math.max(1, R.desc), fratrie: R.fratrie, conjoint: R.conjoint, feuille: "A4p", mise: "une", taille: 0.8 };
       const o = optImpr;
       const sel = (id, vals, cur) => '<select id="' + id + '">' + vals.map(v => '<option value="' + v[0] + '"' + (String(v[0]) === String(cur) ? " selected" : "") + ">" + v[1] + "</option>").join("") + "</select>";
       const gen = n => [...Array(n)].map((_, i) => [i + 1, (i + 1) + " génération" + (i ? "s" : "")]);
@@ -2845,20 +2870,61 @@
         '<div class="reglage"><label for="imFr">Frères et sœurs</label><input type="checkbox" id="imFr"' + (o.fratrie ? " checked" : "") + "></div>" +
         '<div class="reglage"><label for="imCj">Conjoint(s)</label><input type="checkbox" id="imCj"' + (o.conjoint ? " checked" : "") + "></div>" +
         '<div class="reglage"><label for="imFeuille">Feuille</label>' + sel("imFeuille", Object.keys(FEUILLES).map(k => [k, FEUILLES[k][0]]), o.feuille) + "</div>" +
-        '<p class="doux" id="imConseil"></p>' +
+        '<div class="reglage"><label for="imMise">Mise en page</label>' +
+          sel("imMise", [["une", "Tout sur une seule feuille (réduit)"], ["plusieurs", "Taille lisible, sur plusieurs feuilles à assembler"]], o.mise) + "</div>" +
+        '<div class="reglage" data-im="taille"><label for="imTaille">Taille des fiches</label>' +
+          sel("imTaille", [[1, "Grande (100 %)"], [0.8, "Moyenne (80 %)"], [0.6, "Petite (60 %)"]], o.taille) + "</div>" +
+        '<p class="imEstim" id="imConseil"></p>' +
         '<button type="button" class="action" id="imGo">🖨 Imprimer</button>' +
         "</div>");
       majDlgImpression();
     }
+
+    // Taille approximative de l'arbre (mêmes règles de placement que l'arbre à l'écran)
+    function estimerTailleArbre(o) {
+      const f0 = racineVue(), G = o.mode === "desc" ? 0 : +o.asc, D = o.mode === "asc" ? 0 : +o.desc;
+      let slots = 0, maxRow = G >= 1 ? 1 : 0;
+      const lay = (p, g) => {
+        if (g > maxRow) maxRow = g;
+        const f = p.pere && trouver(p.pere), m = p.mere && trouver(p.mere);
+        if (g < G && (f || m)) { if (f) lay(f, g + 1); if (m) lay(m, g + 1); } else slots++;
+      };
+      if (G >= 1) {
+        const f = f0.pere && trouver(f0.pere), m = f0.mere && trouver(f0.mere);
+        if (f) lay(f, 1); else slots++;
+        if (m) lay(m, 1); else slots++;
+      }
+      const fratrie = o.fratrie ? personnes.filter(c => c.id !== f0.id && ((f0.pere && c.pere === f0.pere) || (f0.mere && c.mere === f0.mere))).length : 0;
+      const ligne0 = 1 + fratrie + (o.conjoint ? unionsDe(f0).length : 0);
+      const feuilles = (q, lvl) => { const k = lvl < D ? personnes.filter(c => c.pere === q.id || c.mere === q.id) : []; return k.length ? k.reduce((s, c) => s + feuilles(c, lvl + 1), 0) : 1; };
+      const enfants = D >= 1 ? personnes.filter(c => c.pere === f0.id || c.mere === f0.id) : [];
+      const desc = enfants.reduce((s, c) => s + feuilles(c, 1), 0);
+      const largeur = Math.max(slots, ligne0, desc, 1);
+      const lignes = maxRow + (enfants.length ? D : 0);
+      return { W: PADX * 2 + CW + (largeur - 1) * SW, H: PADT + lignes * RP + CH + PADB };
+    }
+    const decoupage = (W, H, k, fe) => {
+      const pasX = fe[2] - CHEVAUCHEMENT, pasY = fe[3] - BAS_TUILE - CHEVAUCHEMENT;
+      const cols = Math.max(1, Math.ceil((W * k - CHEVAUCHEMENT) / pasX)), lignes = Math.max(1, Math.ceil((H * k - CHEVAUCHEMENT) / pasY));
+      return { cols: cols, lignes: lignes, pasX: pasX, pasY: pasY };
+    };
+
     function majDlgImpression() {
       const o = optImpr, m = $("imMode").value;
       document.querySelector('[data-im="asc"]').hidden = m === "desc";
       document.querySelector('[data-im="desc"]').hidden = m === "asc";
-      // Estimation de la largeur : 2^(générations) ancêtres sur la dernière ligne
-      const asc = m === "desc" ? 0 : +$("imAsc").value;
-      const larg = Math.pow(2, asc);
-      $("imConseil").textContent = asc >= 6 ? "⚠ " + larg + " ancêtres possibles sur la dernière ligne : sur une seule feuille le texte sera très petit. Préfère l’A3 paysage, ou moins de générations."
-        : asc === 5 ? "Conseil : 5 générations tiennent mieux en paysage (A4 ou A3)." : "L’arbre est réduit automatiquement pour tenir sur une feuille.";
+      document.querySelector('[data-im="taille"]').hidden = $("imMise").value !== "plusieurs";
+      const t = estimerTailleArbre(o), fe = FEUILLES[o.feuille];
+      if (o.mise === "plusieurs") {
+        const d = decoupage(t.W, t.H, +o.taille, fe), n = d.cols * d.lignes;
+        $("imConseil").textContent = n === 1 ? "✔ L’arbre tient sur une seule feuille à cette taille."
+          : "≈ " + n + " feuilles à assembler (" + d.lignes + " ligne" + (d.lignes > 1 ? "s" : "") + " × " + d.cols + " colonne" + (d.cols > 1 ? "s" : "") +
+            "), plus une page de plan d’assemblage. Les feuilles se chevauchent un peu pour faciliter le collage.";
+      } else {
+        const k = Math.min(1, fe[2] / t.W, (fe[3] - 40) / t.H), pct = Math.round(k * 100);
+        $("imConseil").textContent = pct >= 60 ? "✔ Tout tient sur une feuille (fiches à " + pct + " %)."
+          : "⚠ Sur une seule feuille, les fiches seront réduites à " + pct + " % : texte " + (pct < 35 ? "très petit" : "petit") + ". Choisis « plusieurs feuilles à assembler » pour tout voir en grand.";
+      }
     }
 
     function imprimerArbre() {
@@ -2870,14 +2936,60 @@
       vue = "arbre";
       document.body.classList.add("impression");
       afficherArbre();
-      const monde = $("monde"), fe = FEUILLES[o.feuille] || FEUILLES.A4p;
-      const p = racineVue();
-      $("titreImpression").textContent = (o.mode === "desc" ? "Descendants de " : o.mode === "tout" ? "Ancêtres et descendants de " : "Ancêtres de ") + nomComplet(p) +
+      const monde = $("monde"), fe = FEUILLES[o.feuille] || FEUILLES.A4p, p = racineVue();
+      const titre = (o.mode === "desc" ? "Descendants de " : o.mode === "tout" ? "Ancêtres et descendants de " : "Ancêtres de ") + nomComplet(p) +
         " — " + (o.mode !== "desc" ? R.asc + " génération" + (R.asc > 1 ? "s" : "") + " d’ancêtres" : "") + (o.mode === "tout" ? ", " : "") +
         (o.mode !== "asc" ? R.desc + " génération" + (R.desc > 1 ? "s" : "") + " de descendants" : "");
-      if (monde) {
-        const W = parseFloat(monde.style.width), H = parseFloat(monde.style.height);
-        const k = Math.min(1, fe[2] / W, (fe[3] - 40) / H);   // réduit pour tenir sur la feuille (40 px pour le titre)
+      $("titreImpression").textContent = titre;
+      const W = monde ? parseFloat(monde.style.width) : 0, H = monde ? parseFloat(monde.style.height) : 0;
+      let tuiles = null;
+      if (monde && o.mise === "plusieurs") {
+        // ----- Plusieurs feuilles : l'arbre garde une taille lisible et il est découpé -----
+        const k = +o.taille, d = decoupage(W, H, k, fe), n = d.cols * d.lignes;
+        tuiles = document.createElement("div");
+        tuiles.id = "tuilesImpression";
+        const kPlan = Math.min(1, fe[2] / W, (fe[3] - 90) / H);
+        // Page 1 : plan d'assemblage (arbre entier en petit + quadrillage numéroté)
+        let plan = '<section class="tuile plan" style="width:' + fe[2] + "px;height:" + (fe[3] - 4) + 'px"><h1>' + echapper(titre) + "</h1>" +
+          "<p>" + n + " feuille" + (n > 1 ? "s" : "") + " à assembler : " + d.lignes + " ligne" + (d.lignes > 1 ? "s" : "") + " × " + d.cols + " colonne" + (d.cols > 1 ? "s" : "") +
+          ". Colle chaque feuille sur la bande grise de sa voisine, en suivant les numéros.</p>" +
+          '<div class="planArbre" style="width:' + Math.ceil(W * kPlan) + "px;height:" + Math.ceil(H * kPlan) + 'px"><div class="planMonde"></div>';
+        for (let r = 0; r < d.lignes; r++) for (let c = 0; c < d.cols; c++) {
+          const x = c * d.pasX / k * kPlan, y = r * d.pasY / k * kPlan;
+          // la dernière colonne / ligne s'arrête au bord de l'arbre (sinon le numéro sort de la page)
+          const w = Math.min(fe[2] / k * kPlan, W * kPlan - x), h = Math.min((fe[3] - BAS_TUILE) / k * kPlan, H * kPlan - y);
+          plan += '<span class="planCase" style="left:' + x + "px;top:" + y + "px;width:" + w + "px;height:" + h + 'px">' + (r * d.cols + c + 1) + "</span>";
+        }
+        tuiles.innerHTML = plan + "</div></section>";
+        // Les copies gardent l'identifiant « monde » : elles reprennent ainsi exactement le style de l'arbre (taille des fiches…)
+        const copie = monde.cloneNode(true);
+        copie.style.transform = "scale(" + kPlan + ")";
+        tuiles.querySelector(".planMonde").appendChild(copie);
+        // Pages suivantes : un morceau de l'arbre par feuille
+        for (let r = 0; r < d.lignes; r++) for (let c = 0; c < d.cols; c++) {
+          const num = r * d.cols + c + 1, sec = document.createElement("section");
+          sec.className = "tuile";
+          sec.style.width = fe[2] + "px"; sec.style.height = (fe[3] - 4) + "px";
+          const fen = document.createElement("div");
+          fen.className = "tuileVue";
+          fen.style.height = (fe[3] - BAS_TUILE) + "px";
+          const m = monde.cloneNode(true);
+          m.style.transform = "translate(" + (-c * d.pasX) + "px," + (-r * d.pasY) + "px) scale(" + k + ")";
+          fen.appendChild(m);
+          // Bandes de collage (zone commune avec la feuille de droite / du dessous)
+          if (c < d.cols - 1) fen.insertAdjacentHTML("beforeend", '<span class="bandeColle droite" style="width:' + CHEVAUCHEMENT + 'px"></span>');
+          if (r < d.lignes - 1) fen.insertAdjacentHTML("beforeend", '<span class="bandeColle bas" style="height:' + CHEVAUCHEMENT + 'px"></span>');
+          const voisins = [c < d.cols - 1 ? "à droite : feuille " + (num + 1) : "", r < d.lignes - 1 ? "dessous : feuille " + (num + d.cols) : ""].filter(Boolean).join(" · ");
+          sec.appendChild(fen);
+          sec.insertAdjacentHTML("beforeend", '<div class="tuilePied"><b>Feuille ' + num + " / " + n + "</b> — ligne " + (r + 1) + ", colonne " + (c + 1) +
+            (voisins ? " · " + voisins : "") + '<span class="doux"> · ' + echapper(nomComplet(p)) + "</span></div>");
+          tuiles.appendChild(sec);
+        }
+        document.body.appendChild(tuiles);
+        document.body.classList.add("impressionMulti");
+      } else if (monde) {
+        // ----- Une seule feuille : l'arbre est réduit pour tenir -----
+        const k = Math.min(1, fe[2] / W, (fe[3] - 40) / H);
         monde.style.transform = "scale(" + k + ")";
         $("arbre").style.height = Math.ceil(H * k) + "px";
         $("arbre").style.width = Math.ceil(W * k) + "px";
@@ -2887,7 +2999,8 @@
       st.textContent = "@page { size: " + fe[1] + "; margin: 10mm; }";
       const fin = () => {
         window.removeEventListener("afterprint", fin);
-        document.body.classList.remove("impression");
+        document.body.classList.remove("impression", "impressionMulti");
+        if (tuiles) tuiles.remove();
         $("arbre").style.height = ""; $("arbre").style.width = "";
         Object.assign(R, sauve);
         vue = vueAvant;
@@ -2902,6 +3015,7 @@
       const o = optImpr;
       o.mode = $("imMode").value; o.asc = +$("imAsc").value; o.desc = +$("imDesc").value;
       o.fratrie = $("imFr").checked; o.conjoint = $("imCj").checked; o.feuille = $("imFeuille").value;
+      o.mise = $("imMise").value; o.taille = +$("imTaille").value;
       majDlgImpression();
     });
     $("dlgOutil").addEventListener("click", function (e) {
