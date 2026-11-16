@@ -286,8 +286,14 @@
       body.impressionMulti > *:not(#tuilesImpression) { display: none !important; }
       body.impressionMulti { background: #fff !important; }
       body.impressionMulti #tuilesImpression { display: block; }
-      .tuile { position: relative; overflow: hidden; break-after: page; page-break-after: always; box-sizing: border-box; }
+      .tuile { position: relative; overflow: hidden; break-after: page; page-break-after: always; box-sizing: border-box;
+               width: 100vw; height: calc(100vh - 1px); margin: 0; padding: 0; }
       .tuile:last-child { break-after: auto; page-break-after: auto; }
+      .tuileSvg { display: block; width: 100%; height: 100%; }
+      .tuileBoite { position: relative; overflow: hidden; background: #fff; }
+      .impTitre { font: bold 18px sans-serif; color: #2f2547; margin: 0 0 4px; }
+      .impSous { font: 12px sans-serif; margin: 0 0 10px; }
+      html, body { margin: 0 !important; padding: 0 !important; }
       .tuileVue { position: relative; overflow: hidden; }
       .tuileVue > div { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
       .tuileVue svg, .planMonde svg { position: absolute; left: 0; top: 0; overflow: visible; }
@@ -297,8 +303,6 @@
       .bandeColle.droite { top: 0; right: 0; bottom: 0; }
       .bandeColle.bas { left: 0; right: 0; bottom: 0; }
       .tuilePied { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; font: 12px sans-serif; color: #2f2547; border-top: 1px dashed #b9add4; padding-top: 4px; }
-      .tuile.plan h1 { font-size: 18px; margin: 0 0 4px; }
-      .tuile.plan p { font-size: 12px; margin: 0 0 10px; }
       .planArbre { position: relative; }
       .planMonde > div { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
       .planCase { position: absolute; box-sizing: border-box; border: 1.5px solid #6c58b8; color: #6c58b8; font: bold 16px sans-serif; display: flex; align-items: center; justify-content: center; background: rgba(108,88,184,.06); }
@@ -2937,77 +2941,97 @@
       document.body.classList.add("impression");
       afficherArbre();
       const monde = $("monde"), fe = FEUILLES[o.feuille] || FEUILLES.A4p, p = racineVue();
-      const titre = (o.mode === "desc" ? "Descendants de " : o.mode === "tout" ? "Ancêtres et descendants de " : "Ancêtres de ") + nomComplet(p) +
-        " — " + (o.mode !== "desc" ? R.asc + " génération" + (R.asc > 1 ? "s" : "") + " d’ancêtres" : "") + (o.mode === "tout" ? ", " : "") +
-        (o.mode !== "asc" ? R.desc + " génération" + (R.desc > 1 ? "s" : "") + " de descendants" : "");
-      $("titreImpression").textContent = titre;
-      const W = monde ? parseFloat(monde.style.width) : 0, H = monde ? parseFloat(monde.style.height) : 0;
-      let tuiles = null;
-      if (monde && o.mise === "plusieurs") {
-        // ----- Plusieurs feuilles : l'arbre garde une taille lisible et il est découpé -----
-        const k = +o.taille, d = decoupage(W, H, k, fe), n = d.cols * d.lignes;
-        tuiles = document.createElement("div");
-        tuiles.id = "tuilesImpression";
-        const kPlan = Math.min(1, fe[2] / W, (fe[3] - 90) / H);
-        // Page 1 : plan d'assemblage (arbre entier en petit + quadrillage numéroté)
-        let plan = '<section class="tuile plan" style="width:' + fe[2] + "px;height:" + (fe[3] - 4) + 'px"><h1>' + echapper(titre) + "</h1>" +
-          "<p>" + n + " feuille" + (n > 1 ? "s" : "") + " à assembler : " + d.lignes + " ligne" + (d.lignes > 1 ? "s" : "") + " × " + d.cols + " colonne" + (d.cols > 1 ? "s" : "") +
-          ". Colle chaque feuille sur la bande grise de sa voisine, en suivant les numéros.</p>" +
-          '<div class="planArbre" style="width:' + Math.ceil(W * kPlan) + "px;height:" + Math.ceil(H * kPlan) + 'px"><div class="planMonde"></div>';
-        for (let r = 0; r < d.lignes; r++) for (let c = 0; c < d.cols; c++) {
-          const x = c * d.pasX / k * kPlan, y = r * d.pasY / k * kPlan;
-          // la dernière colonne / ligne s'arrête au bord de l'arbre (sinon le numéro sort de la page)
-          const w = Math.min(fe[2] / k * kPlan, W * kPlan - x), h = Math.min((fe[3] - BAS_TUILE) / k * kPlan, H * kPlan - y);
-          plan += '<span class="planCase" style="left:' + x + "px;top:" + y + "px;width:" + w + "px;height:" + h + 'px">' + (r * d.cols + c + 1) + "</span>";
-        }
-        tuiles.innerHTML = plan + "</div></section>";
-        // Les copies gardent l'identifiant « monde » : elles reprennent ainsi exactement le style de l'arbre (taille des fiches…)
-        const copie = monde.cloneNode(true);
-        copie.style.transform = "scale(" + kPlan + ")";
-        tuiles.querySelector(".planMonde").appendChild(copie);
-        // Pages suivantes : un morceau de l'arbre par feuille
-        for (let r = 0; r < d.lignes; r++) for (let c = 0; c < d.cols; c++) {
-          const num = r * d.cols + c + 1, sec = document.createElement("section");
-          sec.className = "tuile";
-          sec.style.width = fe[2] + "px"; sec.style.height = (fe[3] - 4) + "px";
-          const fen = document.createElement("div");
-          fen.className = "tuileVue";
-          fen.style.height = (fe[3] - BAS_TUILE) + "px";
-          const m = monde.cloneNode(true);
-          m.style.transform = "translate(" + (-c * d.pasX) + "px," + (-r * d.pasY) + "px) scale(" + k + ")";
-          fen.appendChild(m);
-          // Bandes de collage (zone commune avec la feuille de droite / du dessous)
-          if (c < d.cols - 1) fen.insertAdjacentHTML("beforeend", '<span class="bandeColle droite" style="width:' + CHEVAUCHEMENT + 'px"></span>');
-          if (r < d.lignes - 1) fen.insertAdjacentHTML("beforeend", '<span class="bandeColle bas" style="height:' + CHEVAUCHEMENT + 'px"></span>');
-          const voisins = [c < d.cols - 1 ? "à droite : feuille " + (num + 1) : "", r < d.lignes - 1 ? "dessous : feuille " + (num + d.cols) : ""].filter(Boolean).join(" · ");
-          sec.appendChild(fen);
-          sec.insertAdjacentHTML("beforeend", '<div class="tuilePied"><b>Feuille ' + num + " / " + n + "</b> — ligne " + (r + 1) + ", colonne " + (c + 1) +
-            (voisins ? " · " + voisins : "") + '<span class="doux"> · ' + echapper(nomComplet(p)) + "</span></div>");
-          tuiles.appendChild(sec);
-        }
-        document.body.appendChild(tuiles);
-        document.body.classList.add("impressionMulti");
-      } else if (monde) {
-        // ----- Une seule feuille : l'arbre est réduit pour tenir -----
-        const k = Math.min(1, fe[2] / W, (fe[3] - 40) / H);
-        monde.style.transform = "scale(" + k + ")";
-        $("arbre").style.height = Math.ceil(H * k) + "px";
-        $("arbre").style.width = Math.ceil(W * k) + "px";
-      }
-      let st = $("stylePage");
-      if (!st) { st = document.createElement("style"); st.id = "stylePage"; document.head.appendChild(st); }
-      st.textContent = "@page { size: " + fe[1] + "; margin: 10mm; }";
       const fin = () => {
         window.removeEventListener("afterprint", fin);
         document.body.classList.remove("impression", "impressionMulti");
-        if (tuiles) tuiles.remove();
-        $("arbre").style.height = ""; $("arbre").style.width = "";
+        const t = $("tuilesImpression"); if (t) t.remove();
         Object.assign(R, sauve);
         vue = vueAvant;
         afficherArbre();
       };
+      if (!monde) { fin(); return; }
+      const titre = (o.mode === "desc" ? "Descendants de " : o.mode === "tout" ? "Ancêtres et descendants de " : "Ancêtres de ") + nomComplet(p) +
+        " — " + (o.mode !== "desc" ? R.asc + " génération" + (R.asc > 1 ? "s" : "") + " d’ancêtres" : "") + (o.mode === "tout" ? ", " : "") +
+        (o.mode !== "asc" ? R.desc + " génération" + (R.desc > 1 ? "s" : "") + " de descendants" : "");
+      const W = parseFloat(monde.style.width), H = parseFloat(monde.style.height);
+      const PW = fe[2], PH = fe[3];
+      const tuiles = document.createElement("div");
+      tuiles.id = "tuilesImpression";
+
+      // Chaque page est dessinée dans une image vectorielle (SVG) de PW × PH, étirée sur toute la page réelle :
+      // si on choisit un autre papier (A3…) ou d'autres marges dans la fenêtre d'impression, elle s'agrandit pour la remplir.
+      const NS = "http://www.w3.org/2000/svg";
+      const page = (contenu) => {
+        const sec = document.createElement("section");
+        sec.className = "tuile";
+        const svg = document.createElementNS(NS, "svg");
+        svg.setAttribute("viewBox", "0 0 " + PW + " " + PH);
+        svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+        svg.setAttribute("class", "tuileSvg");
+        const fo = document.createElementNS(NS, "foreignObject");
+        fo.setAttribute("x", "0"); fo.setAttribute("y", "0"); fo.setAttribute("width", PW); fo.setAttribute("height", PH);
+        const boite = document.createElement("div");
+        boite.className = "tuileBoite";
+        boite.style.width = PW + "px"; boite.style.height = PH + "px";
+        boite.appendChild(contenu);
+        fo.appendChild(boite);
+        svg.appendChild(fo);
+        sec.appendChild(svg);
+        tuiles.appendChild(sec);
+      };
+      // Copie de l'arbre (garde l'identifiant « monde » : même style que l'arbre à l'écran)
+      const copieArbre = (transform) => { const c = monde.cloneNode(true); c.style.transform = transform; return c; };
+      const bloc = (html) => { const d = document.createElement("div"); d.innerHTML = html; return d; };
+
+      if (o.mise === "plusieurs") {
+        // ----- Plusieurs feuilles : l'arbre garde une taille lisible et il est découpé -----
+        const k = +o.taille, d = decoupage(W, H, k, fe), n = d.cols * d.lignes;
+        const kPlan = Math.min(1, PW / W, (PH - 90) / H);
+        // Page 1 : plan d'assemblage (arbre entier en petit + quadrillage numéroté)
+        let cases = "";
+        for (let r = 0; r < d.lignes; r++) for (let c = 0; c < d.cols; c++) {
+          const x = c * d.pasX / k * kPlan, y = r * d.pasY / k * kPlan;
+          // la dernière colonne / ligne s'arrête au bord de l'arbre (sinon le numéro sort de la page)
+          const w = Math.min(PW / k * kPlan, W * kPlan - x), h = Math.min((PH - BAS_TUILE) / k * kPlan, H * kPlan - y);
+          cases += '<span class="planCase" style="left:' + x + "px;top:" + y + "px;width:" + w + "px;height:" + h + 'px">' + (r * d.cols + c + 1) + "</span>";
+        }
+        const plan = bloc('<h1 class="impTitre">' + echapper(titre) + "</h1>" +
+          '<p class="impSous">' + n + " feuille" + (n > 1 ? "s" : "") + " à assembler : " + d.lignes + " ligne" + (d.lignes > 1 ? "s" : "") + " × " + d.cols + " colonne" + (d.cols > 1 ? "s" : "") +
+          ". Colle chaque feuille sur la bande grise de sa voisine, en suivant les numéros.</p>" +
+          '<div class="planArbre" style="width:' + Math.ceil(W * kPlan) + "px;height:" + Math.ceil(H * kPlan) + 'px"><div class="planMonde"></div>' + cases + "</div>");
+        plan.querySelector(".planMonde").appendChild(copieArbre("scale(" + kPlan + ")"));
+        page(plan);
+        // Pages suivantes : un morceau de l'arbre par feuille
+        for (let r = 0; r < d.lignes; r++) for (let c = 0; c < d.cols; c++) {
+          const num = r * d.cols + c + 1, contenu = document.createElement("div");
+          const fen = document.createElement("div");
+          fen.className = "tuileVue";
+          fen.style.width = PW + "px"; fen.style.height = (PH - BAS_TUILE) + "px";
+          fen.appendChild(copieArbre("translate(" + (-c * d.pasX) + "px," + (-r * d.pasY) + "px) scale(" + k + ")"));
+          // Bandes de collage (zone commune avec la feuille de droite / du dessous)
+          if (c < d.cols - 1) fen.insertAdjacentHTML("beforeend", '<span class="bandeColle droite" style="width:' + CHEVAUCHEMENT + 'px"></span>');
+          if (r < d.lignes - 1) fen.insertAdjacentHTML("beforeend", '<span class="bandeColle bas" style="height:' + CHEVAUCHEMENT + 'px"></span>');
+          contenu.appendChild(fen);
+          const voisins = [c < d.cols - 1 ? "à droite : feuille " + (num + 1) : "", r < d.lignes - 1 ? "dessous : feuille " + (num + d.cols) : ""].filter(Boolean).join(" · ");
+          contenu.insertAdjacentHTML("beforeend", '<div class="tuilePied"><b>Feuille ' + num + " / " + n + "</b> — ligne " + (r + 1) + ", colonne " + (c + 1) +
+            (voisins ? " · " + voisins : "") + '<span class="doux"> · ' + echapper(nomComplet(p)) + "</span></div>");
+          page(contenu);
+        }
+      } else {
+        // ----- Une seule feuille : l'arbre entier, réduit si besoin, avec le titre -----
+        const k = Math.min(1, PW / W, (PH - 40) / H);
+        const une = bloc('<h1 class="impTitre">' + echapper(titre) + '</h1><div class="planArbre" style="width:' + Math.ceil(W * k) + "px;height:" + Math.ceil(H * k) + 'px;margin:0 auto"><div class="planMonde"></div></div>');
+        une.querySelector(".planMonde").appendChild(copieArbre("scale(" + k + ")"));
+        page(une);
+      }
+      document.body.appendChild(tuiles);
+      document.body.classList.add("impressionMulti");
+      // Format proposé à l'imprimante ; si tu en choisis un autre dans la fenêtre d'impression, les pages s'y adaptent
+      let st = $("stylePage");
+      if (!st) { st = document.createElement("style"); st.id = "stylePage"; document.head.appendChild(st); }
+      st.textContent = "@page { size: " + fe[1] + "; margin: 8mm; }";
       window.addEventListener("afterprint", fin);
-      setTimeout(() => window.print(), 60);
+      setTimeout(() => window.print(), 80);
     }
 
     $("dlgOutil").addEventListener("change", function (e) {
